@@ -11,6 +11,7 @@ import { useForm } from "react-hook-form";
 import * as yup from "yup";
 import { toastMessage } from "../../config/toast";
 import { callPostApi } from "../../_service";
+import CommunicationApp from "./twillio/twiliocall";
 
 // Validation schema with Yup
 const validationSchema = yup.object().shape({
@@ -175,6 +176,7 @@ const Dashboard = ({
         </div>
 
         <Col lg="12" xl="12" className="d-flex">
+          <CommunicationApp />
           <div className="dashboard-card w-100">
             <div className="dashboard-card-head">
               <div className="header-title">
