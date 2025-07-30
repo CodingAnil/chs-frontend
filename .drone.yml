@@ -15,7 +15,7 @@ steps:
         path: /var/run/docker.sock
     commands:
       - echo "🔨 Building Docker image..."
-      - docker build -t Chs-frontend:latest .
+      - docker build -t chs-frontend:latest .
 
   - name: redeploy
     image: docker:20.10
@@ -26,14 +26,14 @@ steps:
         path: /env
     commands:
       - echo "🛑 Stopping old container (if any)"
-      - docker rm -f Chs-frontend || true
+      - docker rm -f chs-frontend || true
       - echo "🚀 Starting new container"
       - >
         docker run -d
-        --name Chs-frontend
+        --name chs-frontend
         --env-file /env/.env
         -p 3000:3000
-        Chs-frontend:latest
+        chs-frontend:latest
 
 volumes:
   - name: dockersock
