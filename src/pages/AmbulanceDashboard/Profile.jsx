@@ -153,8 +153,8 @@ const Profile = ({ userData, profileData, refreshData }) => {
 
     try {
       const response = await callPutApi(`/ambulance/profile`, formData);
-
-      if (response?.status) {
+       debugger;
+      if (response?.success) {
         toast.success("Profile updated successfully!");
         refreshData();
       } else {

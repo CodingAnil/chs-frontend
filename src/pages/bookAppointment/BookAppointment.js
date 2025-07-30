@@ -13,6 +13,7 @@ import { cpFirstName, formatName } from "../../helpers/utils";
 import { toastMessage } from "../../config/toast";
 import { axiosInstance } from "../../helpers/axiosInstance";
 import { useDispatch } from "react-redux";
+import { Image } from "react-bootstrap";
 
 function getProfile(item) {
   if (item.profile) return item.profile;
@@ -199,8 +200,8 @@ function BookAppointment() {
           console.log("Navigating to pathology booking:", `/pathologybooking/${res?.payload?._id}`);
           navigate(`/pathologybooking/${res?.payload?._id}`);
         } else if (data.type === 'ambulance') {
-          console.log("Navigating to ambulance booking:", `/ambulancebooking/${res?.payload?._id}`);
-          navigate(`/ambulancebooking/${res?.payload?._id}`);
+          console.log("Navigating to ambulance booking:", `/ambulance-booking/${res?.payload?._id}`);
+          navigate(`/ambulance-booking/${res?.payload?._id}`);
         } else if (data.type === 'biomedical') {
           console.log("Navigating to biomedical booking:", `/biomedicalbooking/${res?.payload?._id}`);
           navigate(`/biomedicalbooking/${res?.payload?._id}`);
@@ -324,6 +325,63 @@ function BookAppointment() {
       prev.includes(spec) ? prev.filter((s) => s !== spec) : [...prev, spec]
     );
     setIsFilterApplied(false);
+  };
+
+  const getProfileImageBlock = (el) => {
+    debugger;
+    const data = el;
+    const type = el.type || data?.type || "default"; // Default to 'default' if type is not set
+
+    let imgSrc = null;
+    let icon = null;
+    let color = "#007bff";
+
+    if (type === "ambulance") {
+      imgSrc = data?.coverImage;
+      icon = "fas fa-ambulance fa-3x";
+    } else if (type === "doctor") {
+      imgSrc = data?.coverImage;
+      icon = "fas fa-user-md fa-3x";
+      color = "#28a745";
+    } else if (type === "nurse") {
+      imgSrc = data?.coverImage;
+      icon = "fas fa-user-nurse fa-3x";
+      color = "#17a2b8";
+    } else if (type === "pathology") {
+      imgSrc = data?.coverImage;
+      icon = "fas fa-flask fa-3x";
+      color = "#ffc107";
+    } else {
+      imgSrc = user_img;
+    }
+
+    if (imgSrc) {
+      return (
+        <Image
+          src={imgSrc}
+          alt="Provider"
+          fluid
+          style={{ width: 150, height: 150, objectFit: "cover", background: "#f1f3f5" }}
+        />
+      );
+    }
+
+    return (
+      <div
+        style={{
+          width: 150,
+          height: 150,
+          background: "#f1f3f5",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 24,
+          color,
+        }}
+      >
+        <i className={icon}></i>
+      </div>
+    );
   };
 
   return (
@@ -538,11 +596,12 @@ function BookAppointment() {
                               <div className="doc-info-left">
                                 <div className="doctor-img">
                                   <a href="#">
-                                    <img
+                                    {getProfileImageBlock(el)}
+                                    {/* <img
                                       src={el?.profile?.coverImage || el?.coverImage || user_img}
                                       className="img-fluid"
                                       alt="Profile"
-                                    />
+                                    /> */}
                                   </a>
                                 </div>
                                 <div className="doc-info-cont">
@@ -703,12 +762,12 @@ function BookAppointment() {
                                       >
                                         View Details
                                       </Link>
-                                      <Link
-                                        className="btn btn-primary-light"
-                                        to="/ambulance-booking"
+                                      <button
+                                        className="btn btn-primary-light w-100"
+                                        onClick={() => !bookingLoading && handleBookAppointment(el)}
                                       >
                                         Book Ambulance
-                                      </Link>
+                                      </button>
                                     </>
                                   ) : el.type === 'biomedical' ? (
                                     <>

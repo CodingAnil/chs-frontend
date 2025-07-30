@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { getDataAPI, postDataAPI } from '../../helpers/axiosInstance';
+import { getDataAPI, putDataAPI } from '../../helpers/axiosInstance';
 import { toast } from 'react-toastify';
-import { getLocalStorage } from '../../helpers/storage';
-import { STORAGE } from '../../constants/Storage';
+import KilometersPopup from './KilometersPopup'; // your popup component
+
+const ITEMS_PER_PAGE = 5;
 
 const Appointments = () => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showKmPopup, setShowKmPopup] = useState(false);
+  const [currentAppointmentId, setCurrentAppointmentId] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [detailsAppointment, setDetailsAppointment] = useState(null);
 
   useEffect(() => {
     fetchAppointments();
@@ -16,25 +22,14 @@ const Appointments = () => {
 
   const fetchAppointments = async () => {
     try {
-      const user = getLocalStorage(STORAGE.USER_KEY);
-      
-      // Extract profile ID correctly - profile is an object, not a string
-      const profileId = user?.profile?._id;
-      
-      if (!profileId) {
-        toast.error('No ambulance profile found');
-        return;
-      }
-      
-      const response = await getDataAPI(`/ambulance/appointments?profileId=${profileId}`);
-      
-      if (response.data.success) {
-        setAppointments(response.data.data);
+      const response = await getDataAPI('/ambulance/appointments');
+      if (response.success) {
+        setAppointments(response.data);
       } else {
         toast.error('Failed to load appointments');
       }
     } catch (error) {
-      console.error('Error fetching appointments:', error);
+      console.error('Error:', error);
       toast.error('Failed to load appointments');
     } finally {
       setLoading(false);
@@ -43,46 +38,84 @@ const Appointments = () => {
 
   const updateAppointmentStatus = async (appointmentId, newStatus) => {
     try {
-      const response = await postDataAPI('/api/ambulance/appointments/update-status', {
-        appointmentId,
-        status: newStatus
+      const response = await putDataAPI(`/ambulance/appointments/${appointmentId}`, {
+        status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1),
       });
-      
-      if (response.data.success) {
-        setAppointments(prev => 
-          prev.map(appointment => 
-            appointment._id === appointmentId 
-              ? { ...appointment, status: newStatus }
-              : appointment
+      if (response.success) {
+        setAppointments((prev) =>
+          prev.map((app) =>
+            app._id === appointmentId ? { ...app, status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1) } : app
           )
         );
-        toast.success(`Appointment ${newStatus} successfully`);
+        toast.success(response.message);
+      } else {
+        toast.error(response.message || 'Failed to update appointment status');
       }
     } catch (error) {
-      console.error('Error updating appointment status:', error);
       toast.error('Failed to update appointment status');
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'pending': return '#ffc107';
-      case 'confirmed': return '#28a745';
-      case 'completed': return '#007bff';
-      case 'cancelled': return '#dc3545';
-      default: return '#6c757d';
-    }
+  const openKmPopup = (appointmentId) => {
+    setCurrentAppointmentId(appointmentId);
+    setShowKmPopup(true);
   };
 
-  const filteredAppointments = appointments.filter(appointment => {
-    const matchesFilter = filter === 'all' || appointment.status === filter;
-    const matchesSearch = 
-      appointment.patientDetails?.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      appointment.patientDetails?.phoneNumber?.includes(searchTerm) ||
-      appointment._id.toLowerCase().includes(searchTerm.toLowerCase());
-    
+  const handleKmSuccess = (data) => {
+    setAppointments((prev) =>
+      prev.map((appt) =>
+        appt._id === currentAppointmentId
+          ? { ...appt, kilometersDriven: data.kilometersDriven, calculatedFare: data.calculatedFare, isPaid: false }
+          : appt
+      )
+    );
+  };
+
+  // Show details modal for selected appointment
+  const openDetailsModal = (appointment) => {
+    setDetailsAppointment(appointment);
+    setShowDetailsModal(true);
+  };
+
+  // Close details modal
+  const closeDetailsModal = () => {
+    setDetailsAppointment(null);
+    setShowDetailsModal(false);
+  };
+
+  // Filter and search logic
+  const filteredAppointments = appointments.filter((appointment) => {
+    const status = (appointment.status || '').toLowerCase();
+    const matchesFilter = filter === 'all' || status === filter;
+    const patientEmail = appointment.patientId?.email?.toLowerCase() || '';
+    const matchesSearch =
+      patientEmail.includes(searchTerm.toLowerCase()) ||
+      (appointment._id || '').toLowerCase().includes(searchTerm.toLowerCase());
     return matchesFilter && matchesSearch;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredAppointments.length / ITEMS_PER_PAGE);
+  const paginatedAppointments = filteredAppointments.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Status colors map
+  const getStatusColor = (status) => {
+    switch ((status || '').toLowerCase()) {
+      case 'pending':
+        return '#ffc107';
+      case 'accepted':
+        return '#28a745';
+      case 'completed':
+        return '#007bff';
+      case 'cancelled':
+        return '#dc3545';
+      default:
+        return '#6c757d';
+    }
+  };
 
   if (loading) {
     return <div className="loading">Loading appointments...</div>;
@@ -90,429 +123,363 @@ const Appointments = () => {
 
   return (
     <div className="appointments-container">
-      <div className="appointments-header">
-        <h2>Ambulance Appointments</h2>
-        <div className="header-actions">
-          <div className="search-box">
-            <input
-              type="text"
-              placeholder="Search by patient name, phone, or booking ID..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-          <div className="filter-tabs">
-            <button 
-              className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
-              onClick={() => setFilter('all')}
+      <h2>Ambulance Appointments</h2>
+
+      <div className="controls">
+        <input
+          type="text"
+          placeholder="Search by email or booking ID..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="search-input"
+        />
+
+        <div className="filter-tabs">
+          {['all', 'pending', 'accepted', 'completed', 'cancelled'].map((s) => (
+            <button
+              key={s}
+              className={`filter-tab ${filter === s ? 'active' : ''}`}
+              onClick={() => {
+                setFilter(s);
+                setCurrentPage(1); // reset page on filter change
+              }}
             >
-              All
+              {s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
-            <button 
-              className={`filter-tab ${filter === 'pending' ? 'active' : ''}`}
-              onClick={() => setFilter('pending')}
-            >
-              Pending
-            </button>
-            <button 
-              className={`filter-tab ${filter === 'confirmed' ? 'active' : ''}`}
-              onClick={() => setFilter('confirmed')}
-            >
-              Confirmed
-            </button>
-            <button 
-              className={`filter-tab ${filter === 'completed' ? 'active' : ''}`}
-              onClick={() => setFilter('completed')}
-            >
-              Completed
-            </button>
-            <button 
-              className={`filter-tab ${filter === 'cancelled' ? 'active' : ''}`}
-              onClick={() => setFilter('cancelled')}
-            >
-              Cancelled
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
       <div className="appointments-list">
-        {filteredAppointments.map((appointment) => (
-          <div key={appointment._id} className="appointment-card">
-            <div className="appointment-header">
-              <div className="appointment-id">
-                Booking ID: #{appointment._id.slice(-6)}
-              </div>
-              <div className="appointment-status">
-                <span 
-                  className="status-badge"
-                  style={{ backgroundColor: getStatusColor(appointment.status) }}
-                >
+        {paginatedAppointments.length === 0 && <p>No appointments found.</p>}
+
+        {paginatedAppointments.map((appointment) => {
+          const statusLower = (appointment.status || '').toLowerCase();
+          const isPaymentDone = appointment.isPaid || appointment.paymentStatus === 'Completed';
+
+          return (
+            <div key={appointment._id} className="appointment-card">
+              <div className="header-row">
+                <div className="booking-id">#{appointment._id.slice(-6)}</div>
+                <div className="status-badge" style={{ backgroundColor: getStatusColor(appointment.status) }}>
                   {appointment.status}
-                </span>
-              </div>
-            </div>
-
-            <div className="appointment-content">
-              <div className="patient-info">
-                <h4>{appointment.patientDetails?.patientName}</h4>
-                <p>📞 {appointment.patientDetails?.phoneNumber}</p>
-                <p>📍 From: {appointment.patientDetails?.pickupLocation}</p>
-                <p>🏥 To: {appointment.patientDetails?.dropLocation}</p>
-              </div>
-
-              <div className="appointment-details">
-                <div className="detail-item">
-                  <strong>Date & Time:</strong>
-                  <span>
-                    {new Date(appointment.appointmentDate).toLocaleDateString()} 
-                    {appointment.appointmentTime !== 'ASAP' ? ` at ${appointment.appointmentTime}` : ' (ASAP)'}
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <strong>Service Type:</strong>
-                  <span className={`service-type ${appointment.serviceType}`}>
-                    {appointment.serviceType}
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <strong>Urgency:</strong>
-                  <span className={`urgency ${appointment.patientDetails?.urgencyLevel?.toLowerCase()}`}>
-                    {appointment.patientDetails?.urgencyLevel}
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <strong>Ambulance Type:</strong>
-                  <span>{appointment.patientDetails?.ambulanceType || 'Basic'}</span>
                 </div>
               </div>
 
-              <div className="medical-info">
-                <div className="detail-item">
-                  <strong>Medical Condition:</strong>
-                  <span>{appointment.patientDetails?.medicalCondition || 'Not specified'}</span>
-                </div>
-                <div className="detail-item">
-                  <strong>Emergency Contact:</strong>
-                  <span>{appointment.patientDetails?.emergencyContact}</span>
+              <div className="info-row">
+                <div>{appointment.patientId?.email || 'Unknown'}</div>
+                <div>
+                  {appointment.date ? new Date(appointment.date).toLocaleDateString() : 'N/A'}{' '}
+                  {appointment.time ? `at ${appointment.time}` : ''}
                 </div>
               </div>
-            </div>
 
-            <div className="appointment-actions">
-              {appointment.status === 'pending' && (
-                <>
-                  <button 
-                    className="btn btn-success"
-                    onClick={() => updateAppointmentStatus(appointment._id, 'confirmed')}
-                  >
-                    Confirm
-                  </button>
-                  <button 
-                    className="btn btn-danger"
-                    onClick={() => updateAppointmentStatus(appointment._id, 'cancelled')}
-                  >
-                    Cancel
-                  </button>
-                </>
+              <div className="info-row">
+                <div>From: {appointment.pickupLocation || 'N/A'}</div>
+                <div>To: {appointment.dropLocation || 'N/A'}</div>
+              </div>
+
+              {(appointment.kilometersDriven !== undefined || appointment.calculatedFare !== undefined) && (
+                <div className="info-row">
+                  {appointment.kilometersDriven !== undefined && <div>Km Driven: {appointment.kilometersDriven}</div>}
+                  {appointment.calculatedFare !== undefined && (
+                    <div>Fare: ₹{appointment.calculatedFare.toFixed(2)}</div>
+                  )}
+                  <div>
+                    Payment:{' '}
+                    <strong style={{ color: isPaymentDone ? 'green' : 'red' }}>
+                      {isPaymentDone ? 'Done' : 'Pending'}
+                    </strong>
+                  </div>
+                </div>
               )}
-              {appointment.status === 'confirmed' && (
-                <button 
-                  className="btn btn-primary"
-                  onClick={() => updateAppointmentStatus(appointment._id, 'completed')}
-                >
-                  Mark Completed
+
+              <div className="actions-row">
+                {statusLower === 'pending' && (
+                  <>
+                    <button className="btn success" onClick={() => updateAppointmentStatus(appointment._id, 'Accepted')}>
+                      Confirm
+                    </button>
+                    <button className="btn danger" onClick={() => updateAppointmentStatus(appointment._id, 'Cancelled')}>
+                      Cancel
+                    </button>
+                  </>
+                )}
+
+                {statusLower === 'accepted' && (
+                  <>
+                    <button
+                      className="btn primary"
+                      onClick={() => {
+                        if (!isPaymentDone) {
+                          toast.error('Cannot complete appointment before payment is done');
+                          return;
+                        }
+                        updateAppointmentStatus(appointment._id, 'Completed');
+                      }}
+                      disabled={!isPaymentDone}
+                      title={!isPaymentDone ? 'Complete appointment after payment is done' : ''}
+                    >
+                      Mark Completed
+                    </button>
+                    <button className="btn secondary" onClick={() => openKmPopup(appointment._id)} title="Update Fare">
+                      Update Fare
+                    </button>
+                  </>
+                )}
+
+                <button className="btn btn-outline" onClick={() => openDetailsModal(appointment)}>
+                  View Details
                 </button>
-              )}
-              <button className="btn btn-outline">View Details</button>
+              </div>
             </div>
-          </div>
-        ))}
-
-        {filteredAppointments.length === 0 && (
-          <div className="no-appointments">
-            <p>No appointments found</p>
-          </div>
-        )}
+          );
+        })}
       </div>
 
+      {/* Pagination Controls */}
+      <div className="pagination">
+        <button disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+          Previous
+        </button>
+        <span>
+          Page {currentPage} / {totalPages || 1}
+        </span>
+        <button disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>
+          Next
+        </button>
+      </div>
+
+      {/* Kilometers Popup */}
+      {showKmPopup && (
+        <KilometersPopup
+          appointmentId={currentAppointmentId}
+          onClose={() => setShowKmPopup(false)}
+          onSuccess={handleKmSuccess}
+        />
+      )}
+
+      {/* Details Modal */}
+      {showDetailsModal && detailsAppointment && (
+        <div className="modal-overlay" onClick={closeDetailsModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Appointment Details</h3>
+            <div className="details-section">
+              <p><strong>Booking ID:</strong> #{detailsAppointment._id}</p>
+              <p><strong>Status:</strong> {detailsAppointment.status}</p>
+              <p><strong>Patient Email:</strong> {detailsAppointment.patientId?.email || 'Unknown'}</p>
+              {/* Add any other fields you want to show */}
+              <p><strong>Reason:</strong> {detailsAppointment.reason || 'N/A'}</p>
+              <p><strong>Symptoms:</strong> {detailsAppointment.symptoms || 'N/A'}</p>
+              <p><strong>Pickup Location:</strong> {detailsAppointment.pickupLocation || 'N/A'}</p>
+              <p><strong>Drop Location:</strong> {detailsAppointment.dropLocation || 'N/A'}</p>
+              <p><strong>Appointment Date:</strong> {detailsAppointment.date ? new Date(detailsAppointment.date).toLocaleString() : 'N/A'}</p>
+              <p><strong>Kilometers Driven:</strong> {detailsAppointment.kilometersDriven ?? 'N/A'}</p>
+              <p><strong>Fare:</strong> ₹{detailsAppointment.calculatedFare?.toFixed(2) ?? 'N/A'}</p>
+              <p><strong>Payment Status:</strong> {detailsAppointment.isPaid || detailsAppointment.paymentStatus === 'Completed' ? 'Paid' : 'Pending'}</p>
+            </div>
+            <button className="btn btn-primary" onClick={closeDetailsModal}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* CSS Styles */}
       <style jsx>{`
         .appointments-container {
-          padding: 20px;
-          max-width: 1200px;
-          margin: 0 auto;
+          max-width: 900px;
+          margin: auto;
+          padding: 15px;
+          font-family: Arial, sans-serif;
         }
-
-        .appointments-header {
-          margin-bottom: 30px;
+        h2 {
+          margin-bottom: 15px;
+          color: #222;
         }
-
-        .appointments-header h2 {
-          color: #333;
-          margin: 0 0 20px 0;
-          font-size: 28px;
-        }
-
-        .header-actions {
+        .controls {
           display: flex;
-          gap: 20px;
           flex-wrap: wrap;
-        }
-
-        .search-box {
-          flex: 1;
-          min-width: 300px;
-        }
-
-        .search-input {
-          width: 100%;
-          padding: 10px 15px;
-          border: 1px solid #ddd;
-          border-radius: 8px;
-          font-size: 14px;
-        }
-
-        .filter-tabs {
-          display: flex;
+          justify-content: space-between;
+          margin-bottom: 15px;
           gap: 10px;
         }
-
-        .filter-tab {
-          padding: 8px 16px;
-          border: 1px solid #ddd;
-          background: white;
-          border-radius: 6px;
-          cursor: pointer;
+        .search-input {
+          flex-grow: 1;
+          min-width: 220px;
+          padding: 6px 10px;
           font-size: 14px;
-          transition: all 0.3s ease;
+          border-radius: 4px;
+          border: 1px solid #ccc;
         }
-
-        .filter-tab:hover {
-          background: #f8f9fa;
+        .filter-tabs button {
+          margin-left: 8px;
+          padding: 6px 12px;
+          font-size: 13px;
+          cursor: pointer;
+          border-radius: 4px;
+          border: 1px solid #ccc;
+          background: #fff;
+          min-width: 75px;
+          text-transform: capitalize;
         }
-
-        .filter-tab.active {
+        .filter-tabs button.active {
           background: #007bff;
-          color: white;
+          color: #fff;
           border-color: #007bff;
         }
-
         .appointments-list {
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 12px;
         }
-
         .appointment-card {
-          background: white;
-          border-radius: 12px;
-          padding: 25px;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-          transition: transform 0.3s ease;
+          background: #fff;
+          border-radius: 6px;
+          padding: 12px 15px;
+          box-shadow: 0 1px 4px rgb(0 0 0 / 0.1);
+          font-size: 14px;
         }
-
-        .appointment-card:hover {
-          transform: translateY(-2px);
-        }
-
-        .appointment-header {
+        .header-row {
           display: flex;
           justify-content: space-between;
-          align-items: center;
-          margin-bottom: 20px;
-          padding-bottom: 15px;
-          border-bottom: 1px solid #eee;
+          margin-bottom: 6px;
+          font-weight: bold;
         }
-
-        .appointment-id {
-          font-weight: 600;
-          color: #333;
-          font-size: 16px;
+        .booking-id {
+          color: #3a3a3a;
         }
-
         .status-badge {
-          padding: 6px 12px;
-          border-radius: 20px;
+          padding: 3px 15px;
+          border-radius: 15px;
           color: white;
           font-size: 12px;
-          font-weight: 500;
           text-transform: capitalize;
         }
-
-        .appointment-content {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 25px;
-          margin-bottom: 20px;
-        }
-
-        .patient-info h4 {
-          margin: 0 0 10px 0;
-          color: #333;
-          font-size: 18px;
-        }
-
-        .patient-info p {
-          margin: 5px 0;
-          color: #666;
-          font-size: 14px;
-        }
-
-        .detail-item {
+        .info-row {
           display: flex;
-          flex-direction: column;
-          margin-bottom: 10px;
-        }
-
-        .detail-item strong {
-          color: #333;
-          font-size: 13px;
-          margin-bottom: 3px;
-        }
-
-        .detail-item span {
-          color: #666;
-          font-size: 14px;
-        }
-
-        .service-type {
-          padding: 4px 8px;
-          border-radius: 4px;
-          font-size: 12px;
-          font-weight: 500;
-          text-transform: capitalize;
-        }
-
-        .service-type.emergency {
-          background: #ff6b6b;
-          color: white;
-        }
-
-        .service-type.transport {
-          background: #4ecdc4;
-          color: white;
-        }
-
-        .urgency {
-          padding: 2px 6px;
-          border-radius: 3px;
-          font-size: 11px;
-          font-weight: 500;
-          text-transform: uppercase;
-        }
-
-        .urgency.low {
-          background: #d4edda;
-          color: #155724;
-        }
-
-        .urgency.medium {
-          background: #fff3cd;
-          color: #856404;
-        }
-
-        .urgency.high {
-          background: #f8d7da;
-          color: #721c24;
-        }
-
-        .urgency.critical {
-          background: #dc3545;
-          color: white;
-        }
-
-        .appointment-actions {
-          display: flex;
-          gap: 10px;
+          justify-content: space-between;
+          margin-bottom: 6px;
+          color: #555;
           flex-wrap: wrap;
+          gap: 5px;
         }
-
-        .btn {
-          padding: 8px 16px;
+        .actions-row button {
+          margin-right: 10px;
+          margin-top: 6px;
+          padding: 6px 12px;
           border: none;
-          border-radius: 6px;
+          border-radius: 4px;
+          font-size: 13px;
           cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-          transition: all 0.3s ease;
+          color: #fff;
+          transition: background-color 0.2s ease;
         }
-
-        .btn-success {
-          background: #28a745;
-          color: white;
+        .btn.success {
+          background-color: #28a745;
         }
-
-        .btn-success:hover {
-          background: #218838;
+        .btn.success:hover {
+          background-color: #218838;
         }
-
-        .btn-danger {
-          background: #dc3545;
-          color: white;
+        .btn.danger {
+          background-color: #dc3545;
         }
-
-        .btn-danger:hover {
-          background: #c82333;
+        .btn.danger:hover {
+          background-color: #c82333;
         }
-
-        .btn-primary {
-          background: #007bff;
-          color: white;
+        .btn.primary {
+          background-color: #007bff;
         }
-
-        .btn-primary:hover {
-          background: #0056b3;
+        .btn.primary:hover:not(:disabled) {
+          background-color: #0056b3;
         }
-
-        .btn-outline {
+        .btn.primary:disabled {
+          background-color: #888;
+          cursor: not-allowed;
+        }
+        .btn.secondary {
+          background-color: #6c757d;
+          margin-left: 8px;
+        }
+        .btn.secondary:hover {
+          background-color: #5a6268;
+        }
+        .btn.btn-outline {
           background: white;
           color: #007bff;
           border: 1px solid #007bff;
         }
-
-        .btn-outline:hover {
+        .btn.btn-outline:hover {
           background: #007bff;
           color: white;
         }
-
-        .no-appointments {
-          text-align: center;
-          padding: 60px;
-          color: #666;
+        .pagination {
+          margin-top: 20px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 12px;
+          font-size: 14px;
+          color: #333;
         }
-
+        .pagination button {
+          background: #007bff;
+          border: none;
+          padding: 6px 12px;
+          color: white;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: 600;
+        }
+        .pagination button:disabled {
+          background: #ccc;
+          cursor: not-allowed;
+        }
         .loading {
           text-align: center;
           padding: 40px;
           color: #666;
+          font-size: 16px;
         }
 
-        @media (max-width: 768px) {
-          .header-actions {
-            flex-direction: column;
-          }
-          
-          .search-box {
-            min-width: auto;
-          }
-          
-          .filter-tabs {
-            flex-wrap: wrap;
-          }
-          
-          .appointment-content {
-            grid-template-columns: 1fr;
-            gap: 20px;
-          }
-          
-          .appointment-actions {
-            justify-content: center;
-          }
+        /* Modal styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          z-index: 10000;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+        .modal-content {
+          background: white;
+          border-radius: 8px;
+          padding: 20px 30px;
+          width: 400px;
+          max-width: 90%;
+          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+          max-height: 80vh;
+          overflow-y: auto;
+          position: relative;
+        }
+        .modal-content h3 {
+          margin-top: 0;
+          margin-bottom: 20px;
+          text-align: center;
+        }
+        .details-section p {
+          margin: 6px 0;
+          font-size: 14px;
+          color: #333;
+          word-break: break-word;
         }
       `}</style>
     </div>
   );
 };
 
-export default Appointments; 
+export default Appointments;

@@ -55,6 +55,7 @@ import AmbulanceDashboard from "../pages/AmbulanceDashboard/AmbulanceDashboard";
 import BiomedicalDashboard from "../pages/BiomedicalDashboard/BiomedicalDashboard";
 import HospitalDashboard from "../pages/HospitalDashboard/HospitalDashboard";
 import HospitalProfile from "../pages/HospitalProfile/HospitalProfile";
+import AmbulanceProfile from "../pages/ambulanceprofile/ambulanceprofile";
 
 const Routes = () => {
   const userData = getLocalStorage(STORAGE.USER_KEY);
@@ -142,7 +143,9 @@ const Routes = () => {
         <Route path="/nurseprofile" element={<NurseProfile />} />
         <Route path="/pathologyprofile" element={<PathologyProfile />} />
         <Route path="/hospitalprofile" element={<HospitalProfile />} />
+        <Route path="/ambulanceprofile" element={<AmbulanceProfile />} />
         <Route path="/nurse/appointment/:userId" element={<NurseBooking />} />
+
           <Route
             path="/DoctorDashboard"
             element={
@@ -245,7 +248,7 @@ const Routes = () => {
         />
 
         <Route
-          path="/ambulance-booking"
+          path="/ambulance-booking/:id"
           element={
             <ProtectedRoute allowedRoles={[ROLES.PATIENT]}>
               <AmbulanceBooking />

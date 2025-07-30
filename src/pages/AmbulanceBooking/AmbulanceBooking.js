@@ -235,7 +235,7 @@ export default function AmbulanceBooking({ type }) {
     const formattedData = {
       ...formData,
       id: getAppointmentId?.appointment_id,
-      appointmentFor: formData?.isMySelf ? "" : formData?.dependent,
+      appointmentFor: formData?.isMySelf ? "Self" : formData?.dependent,
       attachment: uploadedFile?.location || null,
       fileKey: uploadedFile?.key || null,
       // Ambulance specific fields
@@ -248,7 +248,6 @@ export default function AmbulanceBooking({ type }) {
       specialInstructions: formData.specialInstructions,
       ambulanceType: formData.ambulanceType,
       // Set refAmbulance to the ambulance profile ID
-      refAmbulance: ambulanceProfileId
     };
 
     dispatch(updateAppointment(formattedData)).then((res) => {
@@ -269,10 +268,7 @@ export default function AmbulanceBooking({ type }) {
   };
 
   // Get the correct summary data
-  const summaryData =
-    type === "ambulance"
-      ? data?.refAmbulance || data?.ambulance
-      : data?.refDoctor || data?.doctor;
+  const summaryData = data?.refAmbulance;
 
   return (
     <>
@@ -402,7 +398,7 @@ export default function AmbulanceBooking({ type }) {
                     </button>
                   </div>
                 </Col>
-                <BookingSummary data={summaryData} type={type} />
+                <BookingSummary data={summaryData} type={"ambulance"} />
               </>
             )}
             {step === 2 && (
@@ -431,7 +427,7 @@ export default function AmbulanceBooking({ type }) {
                     </button>
                   </div>
                 </Col>
-                <BookingSummary data={summaryData} type={type} />
+                <BookingSummary data={summaryData} type={"ambulance"} />
               </>
             )}
             {step === 3 && (
@@ -456,7 +452,7 @@ export default function AmbulanceBooking({ type }) {
                     </button>
                   </div>
                 </Col>
-                <BookingSummary data={summaryData} type={type} />
+                <BookingSummary data={summaryData} type={"ambulance"} />
               </>
             )}
           </Row>

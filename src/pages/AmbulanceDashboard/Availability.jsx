@@ -11,7 +11,9 @@ const Availability = () => {
     },
     availableDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
     emergencyAvailable: true,
-    serviceAreas: []
+    serviceAreas: [],
+    cityRate: 10,
+    outOfCityRate: 20,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -29,8 +31,12 @@ const Availability = () => {
       console.log('Availability response:', response);
       
       if (response?.success) {
-        setAvailability(response.data);
-      } else {
+        setAvailability(prev => ({
+          ...prev,
+          ...response.data
+        }));
+      }
+       else {
         console.error('Failed to fetch availability:', response);
         toast.error('Failed to load availability settings');
       }
@@ -226,6 +232,31 @@ const Availability = () => {
             </button>
           </div>
         </div>
+        <div className="form-section">
+  <h3>Pricing (Rs / Km)</h3>
+  <div className="form-group">
+    <label htmlFor="cityRate">City Rate (Rs / km):</label>
+    <input
+      type="number"
+      id="cityRate"
+      value={availability.cityRate || 0}
+      onChange={(e) => setAvailability(prev => ({ ...prev, cityRate: Number(e.target.value) }))}
+      min={0}
+      className="form-control"
+    />
+  </div>
+  <div className="form-group">
+    <label htmlFor="outOfCityRate">Out of City Rate (Rs / km):</label>
+    <input
+      type="number"
+      id="outOfCityRate"
+      value={availability.outOfCityRate || 0}
+      onChange={(e) => setAvailability(prev => ({ ...prev, outOfCityRate: Number(e.target.value) }))}
+      min={0}
+      className="form-control"
+    />
+  </div>
+</div>
 
         <div className="form-actions">
           <button 
@@ -272,6 +303,8 @@ const Availability = () => {
                 : 'No areas specified'}
             </span>
           </div>
+ 
+
         </div>
       </div>
 
