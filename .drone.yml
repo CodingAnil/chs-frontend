@@ -5,7 +5,7 @@ name: build-and-deploy
 trigger:
   branch:
     include:
-      - master   # ✅ trigger only on master branch
+      - master   # you want to trigger on master
 
 steps:
   - name: build-image
@@ -15,7 +15,7 @@ steps:
         path: /var/run/docker.sock
     commands:
       - echo "🔨 Building Docker image..."
-      - docker build -t my-node-app:latest ./chs/frontend  # ✅ build from frontend folder
+      - docker build -t my-node-app:latest .   # ✅ just use "."
 
   - name: redeploy
     image: docker:20.10
@@ -32,7 +32,7 @@ steps:
         docker run -d \
           --name my-node-app \
           --env-file /env/.env \
-          -p 5000:3000 \   # ✅ map host 5000 → container 3000
+          -p 3000:3000 \      # ✅ because your Dockerfile EXPOSES 3000
           my-node-app:latest
 
 volumes:
@@ -41,4 +41,4 @@ volumes:
       path: /var/run/docker.sock
   - name: envfile
     host:
-      path: /root/envs/chs/frontend   # ✅ path to .env on server
+      path: /root/envs/chs/frontend
