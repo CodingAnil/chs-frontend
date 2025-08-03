@@ -1,248 +1,684 @@
 import React from "react";
-import { useSearchParams } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
-import { Container, Row, Col, Card, Button } from "react-bootstrap";
-import { MapPin, Phone, Mail, Clock, Award, Users, Truck } from "react-feather";
-
+import { useSearchParams, useNavigate } from "react-router-dom";
+import {
+  MapPin, Phone, Mail, Clock, Award, Users, Truck,
+  User, Briefcase, Star, AlertCircle, CheckCircle,
+  Calendar, DollarSign, Navigation, ArrowLeft, Shield
+} from "lucide-react";
 import Header from "../../components/Header";
 import Breadcrumb from "../../components/Breadcrumb";
 import Footer from "../../components/Footer";
 import useGetMountData from "../../helpers/getDataHook";
-import { getLocalStorage } from "../../helpers/storage";
-import { STORAGE } from "../../constants";
-import { toastMessage } from "../../config/toast";
 
 function AmbulanceProfile() {
   const [searchParams] = useSearchParams();
   const userId = searchParams.get("userId");
-
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-
-  const { data } = useGetMountData(
-    userId ? `/ambulance/viewprofile/${userId}` : null
-  );
-
-  const userProfileId = getLocalStorage(STORAGE.USER_KEY);
+  const { data } = useGetMountData(userId ? `/ambulance/viewprofile/${userId}` : null);
 
   if (!data) {
     return (
       <>
         <Header />
         <Breadcrumb />
-        <div className="content">
-          <Container>
-            <div className="text-center py-5">
-              <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">Loading...</span>
-              </div>
-            </div>
-          </Container>
+        <div style={styles.loadingContainer}>
+          <div style={styles.spinner}></div>
+          <p style={styles.loadingText}>Loading ambulance profile...</p>
         </div>
         <Footer />
       </>
     );
   }
 
-  const ambulanceProfile = data?.data?.profile || {};
+  const ambulanceData = data || {};
+  const ambulanceProfile = ambulanceData.profile || {};
+  const availabilityDetails = ambulanceProfile.availabilityDetails || {};
+  const ambulanceDetails = ambulanceProfile.ambulanceDetails || {};
+  const workingHours = ambulanceProfile.workingHours || {};
 
   return (
     <>
-      <style jsx>{`
-        .profile-container {
-          padding: 40px 0;
-        }
-        .profile-header {
-          background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
-          color: white;
-          padding: 40px 0;
-          border-radius: 15px;
-          margin-bottom: 30px;
-        }
-        .profile-image {
-          width: 120px;
-          height: 120px;
-          border-radius: 50%;
-          border: 4px solid white;
-          object-fit: cover;
-          margin-bottom: 20px;
-        }
-        .availability-status {
-          display: inline-block;
-          padding: 6px 12px;
-          border-radius: 15px;
-          font-size: 0.875rem;
-          font-weight: 500;
-          margin-top: 10px;
-        }
-        .availability-status.available {
-          background: #d4edda;
-          color: #155724;
-          border: 1px solid #c3e6cb;
-        }
-        .availability-status.unavailable {
-          background: #f8d7da;
-          color: #721c24;
-          border: 1px solid #f5c6cb;
-        }
-      `}</style>
-
       <Header />
       <Breadcrumb />
-      <div className="content">
-        <Container>
-          <div className="profile-container">
-            <div className="profile-header text-center">
-              {/* ✅ Show Image OR Truck Icon */}
-              {ambulanceProfile?.coverImage ? (
-                <img
-                  src={ambulanceProfile.coverImage}
-                  alt={ambulanceProfile?.displayName}
-                  className="profile-image"
-                />
-              ) : (
-                <div
-                  className="profile-icon mb-3 d-flex justify-content-center align-items-center"
-                  style={{
-                    width: 120,
-                    height: 120,
-                    borderRadius: "50%",
-                    background: "#f0f8ff",
-                    border: "4px solid white",
-                    margin: "0 auto 20px auto",
-                  }}
-                >
-                  <Truck size={60} color="#007bff" />
+      
+      <div style={styles.container}>
+        <div style={styles.content}>
+          
+          {/* Header Section */}
+          <div style={styles.header}>
+            <button 
+              onClick={() => navigate(-1)}
+              style={styles.backButton}
+            >
+              <ArrowLeft size={18} />
+              Back to Results
+            </button>
+
+            <div style={styles.profileHeader}>
+              <div style={styles.profileLeft}>
+                <div style={styles.avatarContainer}>
+                  <div style={styles.avatar}>
+                    <Truck size={36} color="#2563eb" />
+                  </div>
+                  {ambulanceData.isVerified && (
+                    <div style={styles.verifiedBadge}>
+                      <CheckCircle size={16} color="white" />
+                    </div>
+                  )}
                 </div>
-              )}
-
-              <h1 className="profile-name">
-                {ambulanceProfile?.displayName || "Ambulance Service"}
-              </h1>
-
-              <p className="profile-designation">
-                {ambulanceProfile?.designation || "Ambulance Driver"}
-              </p>
-
-              {ambulanceProfile?.address && (
-                <div className="profile-location">
-                  <MapPin size={16} className="icon" /> {ambulanceProfile.address}
+                
+                <div style={styles.profileInfo}>
+                  <h1 style={styles.profileName}>
+                    {ambulanceProfile.displayName || "Ambulance Service"}
+                  </h1>
+                  <p style={styles.profileDesignation}>
+                    {ambulanceProfile.designation || "Ambulance Driver"}
+                  </p>
+                  <div style={styles.locationInfo}>
+                    <MapPin size={16} color="#6b7280" />
+                    <span>{ambulanceProfile.city}, {ambulanceProfile.state}</span>
+                  </div>
                 </div>
-              )}
+              </div>
 
-              <div
-                className={`availability-status ${
-                  ambulanceProfile?.availability ? "available" : "unavailable"
-                }`}
-              >
-                {ambulanceProfile?.availability
-                  ? "Available"
-                  : "Currently Unavailable"}
+              <div style={styles.profileRight}>
+                <div style={styles.statusBadges}>
+                  <span style={{
+                    ...styles.badge,
+                    ...(ambulanceProfile.availability ? styles.badgeSuccess : styles.badgeDanger)
+                  }}>
+                    {ambulanceProfile.availability ? 'Available' : 'Unavailable'}
+                  </span>
+                  {ambulanceData.isVerified && (
+                    <span style={{...styles.badge, ...styles.badgeInfo}}>
+                      <Shield size={14} />
+                      Verified
+                    </span>
+                  )}
+                  {availabilityDetails.twentyFourHour && (
+                    <span style={{...styles.badge, ...styles.badgePurple}}>
+                      24/7 Service
+                    </span>
+                  )}
+                </div>
+                
+                <div style={styles.actionButtons}>
+                  {/* <button style={styles.primaryButton}>
+                    <Phone size={16} />
+                    Call Now
+                  </button> */}
+                  {/* <button style={styles.secondaryButton}>
+                    Book Service
+                  </button> */}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div style={styles.mainContent}>
+            
+            {/* Left Column */}
+            <div style={styles.leftColumn}>
+              
+              {/* Contact Information */}
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <Phone size={20} color="#2563eb" />
+                  <h2 style={styles.cardTitle}>Contact Information</h2>
+                </div>
+                <div style={styles.cardContent}>
+                  <div style={styles.infoGrid}>
+                    <div style={styles.infoItem}>
+                      <Phone size={16} color="#9ca3af" />
+                      <div>
+                        <div style={styles.infoLabel}>Phone</div>
+                        <div style={styles.infoValue}>{ambulanceProfile.phoneNumber || "Not provided"}</div>
+                      </div>
+                    </div>
+                    <div style={styles.infoItem}>
+                      <Mail size={16} color="#9ca3af" />
+                      <div>
+                        <div style={styles.infoLabel}>Email</div>
+                        <div style={styles.infoValue}>{ambulanceProfile.email || "Not provided"}</div>
+                      </div>
+                    </div>
+                    <div style={styles.infoItem}>
+                      <MapPin size={16} color="#9ca3af" />
+                      <div>
+                        <div style={styles.infoLabel}>Address</div>
+                        <div style={styles.infoValue}>{ambulanceProfile.address || "Not provided"}</div>
+                      </div>
+                    </div>
+                    <div style={styles.infoItem}>
+                      <Navigation size={16} color="#9ca3af" />
+                      <div>
+                        <div style={styles.infoLabel}>Pincode</div>
+                        <div style={styles.infoValue}>{ambulanceProfile.pincode || "Not provided"}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vehicle Details */}
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <Truck size={20} color="#2563eb" />
+                  <h2 style={styles.cardTitle}>Vehicle Details</h2>
+                </div>
+                <div style={styles.cardContent}>
+                  <div style={styles.infoGrid}>
+                    <div style={styles.infoItem}>
+                      <Award size={16} color="#9ca3af" />
+                      <div>
+                        <div style={styles.infoLabel}>Vehicle Number</div>
+                        <div style={styles.infoValue}>{ambulanceDetails.vehicleNumber || "N/A"}</div>
+                      </div>
+                    </div>
+                    <div style={styles.infoItem}>
+                      <Truck size={16} color="#9ca3af" />
+                      <div>
+                        <div style={styles.infoLabel}>Vehicle Model</div>
+                        <div style={styles.infoValue}>{ambulanceDetails.vehicleModel || "N/A"}</div>
+                      </div>
+                    </div>
+                    <div style={styles.infoItem}>
+                      <Briefcase size={16} color="#9ca3af" />
+                      <div>
+                        <div style={styles.infoLabel}>Ambulance Type</div>
+                        <div style={styles.infoValue}>{ambulanceDetails.ambulanceType || "N/A"}</div>
+                      </div>
+                    </div>
+                    <div style={styles.infoItem}>
+                      <Users size={16} color="#9ca3af" />
+                      <div>
+                        <div style={styles.infoLabel}>Capacity</div>
+                        <div style={styles.infoValue}>
+                          {ambulanceDetails.capacity ? `${ambulanceDetails.capacity} person(s)` : "N/A"}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={styles.infoItem}>
+                      <User size={16} color="#9ca3af" />
+                      <div>
+                        <div style={styles.infoLabel}>Driver License</div>
+                        <div style={styles.infoValue}>{ambulanceDetails.driverLicenseNumber || "N/A"}</div>
+                      </div>
+                    </div>
+                    <div style={styles.infoItem}>
+                      <Star size={16} color="#9ca3af" />
+                      <div>
+                        <div style={styles.infoLabel}>Experience</div>
+                        <div style={styles.infoValue}>
+                          {ambulanceDetails.experience ? `${ambulanceDetails.experience} years` : "N/A"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Specializations */}
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <Star size={20} color="#2563eb" />
+                  <h2 style={styles.cardTitle}>Specializations</h2>
+                </div>
+                <div style={styles.cardContent}>
+                  <div style={styles.tagContainer}>
+                    {ambulanceProfile.specializations?.length ? (
+                      ambulanceProfile.specializations.map((spec, index) => (
+                        <span key={index} style={styles.tag}>
+                          {spec}
+                        </span>
+                      ))
+                    ) : (
+                      <p style={styles.emptyText}>No specializations listed</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Service Areas */}
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <Navigation size={20} color="#2563eb" />
+                  <h2 style={styles.cardTitle}>Service Areas</h2>
+                </div>
+                <div style={styles.cardContent}>
+                  <div style={styles.tagContainer}>
+                    {ambulanceProfile.serviceAreas?.length ? (
+                      ambulanceProfile.serviceAreas.map((area, index) => (
+                        <span key={index} style={styles.tagBlue}>
+                          {area}
+                        </span>
+                      ))
+                    ) : (
+                      <p style={styles.emptyText}>No service areas specified</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <Row>
-              <Col lg="6">
-                <Card className="info-card p-3 mb-3">
-                  <h5>Contact Information</h5>
-
-                  {ambulanceProfile?.phoneNumber && (
-                    <div className="info-item mb-2">
-                      <Phone size={18} className="icon" />{" "}
-                      <strong>Phone:</strong> {ambulanceProfile.phoneNumber}
+            {/* Right Column - Sidebar */}
+            <div style={styles.rightColumn}>
+              
+              {/* Availability */}
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <Clock size={20} color="#2563eb" />
+                  <h3 style={styles.cardTitle}>Availability</h3>
+                </div>
+                <div style={styles.cardContent}>
+                  <div style={styles.availabilityGrid}>
+                    <div style={styles.availabilityItem}>
+                      <span style={styles.availabilityLabel}>24/7 Service:</span>
+                      <span style={{
+                        ...styles.availabilityValue,
+                        color: availabilityDetails.twentyFourHour ? '#059669' : '#dc2626'
+                      }}>
+                        {availabilityDetails.twentyFourHour ? 'Yes' : 'No'}
+                      </span>
                     </div>
-                  )}
-
-                  {ambulanceProfile?.email && (
-                    <div className="info-item mb-2">
-                      <Mail size={18} className="icon" />{" "}
-                      <strong>Email:</strong> {ambulanceProfile.email}
+                    <div style={styles.availabilityItem}>
+                      <span style={styles.availabilityLabel}>Emergency Only:</span>
+                      <span style={styles.availabilityValue}>
+                        {availabilityDetails.emergencyOnly ? 'Yes' : 'No'}
+                      </span>
                     </div>
-                  )}
-
-                  {ambulanceProfile?.address && (
-                    <div className="info-item mb-2">
-                      <MapPin size={18} className="icon" />{" "}
-                      <strong>Address:</strong> {ambulanceProfile.address}
+                    <div style={styles.availabilityItem}>
+                      <span style={styles.availabilityLabel}>Service Radius:</span>
+                      <span style={styles.availabilityValue}>
+                        {availabilityDetails.serviceRadius || 'N/A'} km
+                      </span>
                     </div>
-                  )}
-                </Card>
-              </Col>
-
-              <Col lg="6">
-                <Card className="info-card p-3 mb-3">
-                  <h5>Ambulance Details</h5>
-
-                  {ambulanceProfile?.ambulanceDetails?.vehicleNumber && (
-                    <div className="info-item mb-2">
-                      <Award size={18} className="icon" />{" "}
-                      <strong>Vehicle Number:</strong>{" "}
-                      {ambulanceProfile.ambulanceDetails.vehicleNumber}
-                    </div>
-                  )}
-
-                  {ambulanceProfile?.ambulanceDetails?.ambulanceType && (
-                    <div className="info-item mb-2">
-                      <Award size={18} className="icon" />{" "}
-                      <strong>Type:</strong>{" "}
-                      {ambulanceProfile.ambulanceDetails.ambulanceType}
-                    </div>
-                  )}
-
-                  <div className="info-item mb-2">
-                    <Clock size={18} className="icon" />{" "}
-                    <strong>Working Hours:</strong>{" "}
-                    {ambulanceProfile?.workingHours?.start || "09:00"} -{" "}
-                    {ambulanceProfile?.workingHours?.end || "18:00"}
                   </div>
-                </Card>
-              </Col>
-            </Row>
-
-            {ambulanceProfile?.specializations?.length > 0 && (
-              <Card className="info-card p-3 mb-3">
-                <h5>Specializations</h5>
-                <div className="d-flex flex-wrap gap-2">
-                  {ambulanceProfile.specializations.map((item, idx) => (
-                    <span
-                      key={idx}
-                      className="badge bg-primary-subtle text-primary border"
-                    >
-                      {item}
-                    </span>
-                  ))}
+                  <div style={styles.workingHours}>
+                    <div style={styles.infoLabel}>Working Hours</div>
+                    <div style={styles.infoValue}>{workingHours.start} - {workingHours.end}</div>
+                  </div>
                 </div>
-              </Card>
-            )}
+              </div>
 
-            {ambulanceProfile?.serviceAreas?.length > 0 && (
-              <Card className="info-card p-3 mb-3">
-                <h5>Service Areas</h5>
-                <div className="d-flex flex-wrap gap-2">
-                  {ambulanceProfile.serviceAreas.map((item, idx) => (
-                    <span
-                      key={idx}
-                      className="badge bg-info-subtle text-info border"
-                    >
-                      {item}
-                    </span>
-                  ))}
+              {/* Pricing */}
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <DollarSign size={20} color="#2563eb" />
+                  <h3 style={styles.cardTitle}>Pricing</h3>
                 </div>
-              </Card>
-            )}
+                <div style={styles.cardContent}>
+                  <div style={styles.availabilityGrid}>
+                    <div style={styles.availabilityItem}>
+                      <span style={styles.availabilityLabel}>Base Price:</span>
+                      <span style={styles.availabilityValue}>{availabilityDetails.price || 'N/A'}</span>
+                    </div>
+                    <div style={styles.availabilityItem}>
+                      <span style={styles.availabilityLabel}>City Rate:</span>
+                      <span style={styles.availabilityValue}>{availabilityDetails.cityRate || 'N/A'}</span>
+                    </div>
+                    <div style={styles.availabilityItem}>
+                      <span style={styles.availabilityLabel}>Out of City:</span>
+                      <span style={styles.availabilityValue}>{availabilityDetails.outOfCityRate || 'N/A'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-            <div className="text-center mt-4">
-              <Button variant="outline-primary" onClick={() => navigate(-1)}>
-                Back
-              </Button>
+              {/* Emergency Contact */}
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <AlertCircle size={20} color="#2563eb" />
+                  <h3 style={styles.cardTitle}>Emergency Contact</h3>
+                </div>
+                <div style={styles.cardContent}>
+                  <div style={styles.emergencyContact}>
+                    <div>
+                      <div style={styles.infoLabel}>Name</div>
+                      <div style={styles.infoValue}>{ambulanceProfile.emergencyContactName || "Not provided"}</div>
+                    </div>
+                    <div>
+                      <div style={styles.infoLabel}>Phone</div>
+                      <div style={styles.infoValue}>{ambulanceProfile.emergencyContactNumber || "Not provided"}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Working Days */}
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <Calendar size={20} color="#2563eb" />
+                  <h3 style={styles.cardTitle}>Working Days</h3>
+                </div>
+                <div style={styles.cardContent}>
+                  <div style={styles.tagContainer}>
+                    {ambulanceProfile.availableDays?.length ? (
+                      ambulanceProfile.availableDays.map((day, index) => (
+                        <span key={index} style={styles.dayTag}>
+                          {day}
+                        </span>
+                      ))
+                    ) : (
+                      <p style={styles.emptyText}>Not specified</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </Container>
+        </div>
       </div>
+
       <Footer />
     </>
   );
 }
+
+const styles = {
+  container: {
+    backgroundColor: '#f8fafc',
+    minHeight: '100vh',
+    padding: '0',
+  },
+  content: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    padding: '24px',
+  },
+  loadingContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '400px',
+  },
+  spinner: {
+    width: '32px',
+    height: '32px',
+    border: '4px solid #e5e7eb',
+    borderTop: '4px solid #2563eb',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+    marginBottom: '16px',
+  },
+  loadingText: {
+    color: '#6b7280',
+    fontSize: '16px',
+  },
+  header: {
+    marginBottom: '32px',
+  },
+  backButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 16px',
+    backgroundColor: 'transparent',
+    border: '1px solid #d1d5db',
+    borderRadius: '8px',
+    color: '#374151',
+    fontSize: '14px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    marginBottom: '24px',
+    transition: 'all 0.2s',
+  },
+  profileHeader: {
+    backgroundColor: 'white',
+    borderRadius: '16px',
+    padding: '32px',
+    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '24px',
+  },
+  profileLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '20px',
+  },
+  avatarContainer: {
+    position: 'relative',
+  },
+  avatar: {
+    width: '80px',
+    height: '80px',
+    backgroundColor: '#eff6ff',
+    borderRadius: '16px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifiedBadge: {
+    position: 'absolute',
+    bottom: '-4px',
+    right: '-4px',
+    width: '24px',
+    height: '24px',
+    backgroundColor: '#059669',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '2px solid white',
+  },
+  profileInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  profileName: {
+    fontSize: '28px',
+    fontWeight: '700',
+    color: '#111827',
+    margin: '0',
+  },
+  profileDesignation: {
+    fontSize: '16px',
+    color: '#6b7280',
+    margin: '0',
+  },
+  locationInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    color: '#6b7280',
+    fontSize: '14px',
+    marginTop: '8px',
+  },
+  profileRight: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: '16px',
+  },
+  statusBadges: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+  },
+  badge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '6px 12px',
+    borderRadius: '20px',
+    fontSize: '12px',
+    fontWeight: '600',
+  },
+  badgeSuccess: {
+    backgroundColor: '#dcfce7',
+    color: '#166534',
+  },
+  badgeDanger: {
+    backgroundColor: '#fee2e2',
+    color: '#dc2626',
+  },
+  badgeInfo: {
+    backgroundColor: '#dbeafe',
+    color: '#1d4ed8',
+  },
+  badgePurple: {
+    backgroundColor: '#f3e8ff',
+    color: '#7c3aed',
+  },
+  actionButtons: {
+    display: 'flex',
+    gap: '12px',
+  },
+  primaryButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '12px 24px',
+    backgroundColor: '#2563eb',
+    color: 'white',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  },
+  secondaryButton: {
+    padding: '12px 24px',
+    backgroundColor: 'transparent',
+    color: '#2563eb',
+    border: '2px solid #2563eb',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  },
+  mainContent: {
+    display: 'grid',
+    gridTemplateColumns: '2fr 1fr',
+    gap: '32px',
+  },
+  leftColumn: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '24px',
+  },
+  rightColumn: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '24px',
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: '16px',
+    padding: '24px',
+    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+  },
+  cardHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    marginBottom: '20px',
+  },
+  cardTitle: {
+    fontSize: '18px',
+    fontWeight: '600',
+    color: '#111827',
+    margin: '0',
+  },
+  cardContent: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  infoGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '20px',
+  },
+  infoItem: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '12px',
+  },
+  infoLabel: {
+    fontSize: '12px',
+    color: '#6b7280',
+    fontWeight: '500',
+    marginBottom: '4px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  infoValue: {
+    fontSize: '14px',
+    color: '#111827',
+    fontWeight: '500',
+  },
+  tagContainer: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px',
+  },
+  tag: {
+    padding: '6px 12px',
+    backgroundColor: '#f3f4f6',
+    color: '#374151',
+    borderRadius: '20px',
+    fontSize: '12px',
+    fontWeight: '500',
+  },
+  tagBlue: {
+    padding: '6px 12px',
+    backgroundColor: '#eff6ff',
+    color: '#1d4ed8',
+    borderRadius: '20px',
+    fontSize: '12px',
+    fontWeight: '500',
+  },
+  dayTag: {
+    padding: '4px 8px',
+    backgroundColor: '#f9fafb',
+    color: '#374151',
+    borderRadius: '6px',
+    fontSize: '11px',
+    fontWeight: '500',
+  },
+  emptyText: {
+    color: '#9ca3af',
+    fontSize: '14px',
+    fontStyle: 'italic',
+    margin: '0',
+  },
+  availabilityGrid: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  availabilityItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  availabilityLabel: {
+    fontSize: '14px',
+    color: '#6b7280',
+  },
+  availabilityValue: {
+    fontSize: '14px',
+    color: '#111827',
+    fontWeight: '600',
+  },
+  workingHours: {
+    marginTop: '16px',
+    paddingTop: '16px',
+    borderTop: '1px solid #e5e7eb',
+  },
+  emergencyContact: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+};
 
 export default AmbulanceProfile;

@@ -3,13 +3,14 @@ import user_img from "../../assets/img/doctor-profile-img.jpg";
 import message from "../../assets/img/icons/device-message.svg";
 import { Card, CardBody, Col, Image } from "react-bootstrap";
 import { Link } from "react-router-dom";
+import { User } from "react-feather";
 
-export default function BookingSummary({ data, type }) {
+export default function BookingSummary({ data, type, price, formData }) {
   console.log("BookingSummary - type:", type);
   console.log("BookingSummary - data:", data);
 
   const getTitlePrefix = () => {
-    if (["nurse", "pathology", "biomedical", "hospital", "ambulance"].includes(type)) {
+    if (["pathology", "biomedical", "hospital", "ambulance"].includes(type)) {
       return "";
     }
     if (data?.designation?.toLowerCase().includes("nurse")) {
@@ -20,12 +21,13 @@ export default function BookingSummary({ data, type }) {
 
   const getProfileImageBlock = () => {
     let imgSrc = null;
-    let icon = null;
-    let color = "#007bff";
+    let icon = "fas fa-user-nurse";
+    let color = "#17a2b8";
 
     if (type === "ambulance") {
       imgSrc = data?.coverImage;
       icon = "fas fa-ambulance";
+      color = "#007bff";
     } else if (type === "doctor") {
       imgSrc = data?.profileImage;
       icon = "fas fa-user-md";
@@ -124,7 +126,6 @@ export default function BookingSummary({ data, type }) {
           <h4 className="booking-title">Booking Summary</h4>
         </div>
 
-        {/* ✅ Main Profile Card */}
         <Card className="booking-card">
           <CardBody className="booking-card-body">
             <div className="booking-doctor-details">
@@ -140,56 +141,28 @@ export default function BookingSummary({ data, type }) {
                     </Link>
                   </h4>
                   <p>{data?.designation || getDefaultDesignation()}</p>
-                  <p>{data?.languages && data?.languages?.join(",")}</p>
+                  {data?.languages && <p>{data.languages.join(", ")}</p>}
+                  {type === "nurse" && data?.qualifications?.qualification && (
+                    <p><strong>Qualification:</strong> {data.qualifications.qualification}</p>
+                  )}
+                  {type === "nurse" && data?.skills?.length > 0 && (
+                    <p><strong>Skills:</strong> {data.skills.join(", ")}</p>
+                  )}
+                  {type === "nurse" && (
+                    <>
+                      <p><strong>Per Hour Rate:</strong> ₹{price || 0}</p>
+                      {formData?.hourlyDuration && (
+                        <p><strong>Total Cost:</strong> ₹{(price || 0) * (formData.hourlyDuration || 1)}</p>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </div>
           </CardBody>
         </Card>
 
-          {/* ✅ Ambulance Details Card */}
-          {type === "ambulance" && (
-          <Card className="booking-card mt-3">
-            <CardBody>
-              <h5 className="mb-3">🚑 Ambulance Details</h5>
-
-              <p>
-                <strong>Vehicle Number:</strong>{" "}
-                {data?.ambulanceDetails?.vehicleNumber || "N/A"}
-              </p>
-              <p>
-                <strong>Ambulance Type:</strong>{" "}
-                {data?.ambulanceDetails?.ambulanceType || "N/A"}
-              </p>
-              <p>
-                <strong>Base Location:</strong>{" "}
-                {data?.availabilityDetails?.baseLocation || "N/A"}
-              </p>
-              <p>
-                <strong>Service Areas:</strong>{" "}
-                {data?.serviceAreas?.length ? data.serviceAreas.join(", ") : "Not specified"}
-              </p>
-              <p>
-                <strong>City Rate:</strong> ₹{data?.availabilityDetails?.cityRate || 0}
-              </p>
-              <p>
-                <strong>Out of City Rate:</strong> ₹
-                {data?.availabilityDetails?.outOfCityRate || 0}
-              </p>
-              <p>
-                <strong>Service Radius:</strong>{" "}
-                {data?.availabilityDetails?.serviceRadius || 0} Km
-              </p>
-              <p>
-                <strong>24x7 Available:</strong>{" "}
-                {data?.availabilityDetails?.twentyFourHour ? "✅ Yes" : "❌ No"}
-              </p>
-            </CardBody>
-          </Card>
-        )}
-
-        {/* ✅ Help Card */}
-        <Card className="booking-card">
+        <Card className="booking-card mt-3">
           <CardBody className="booking-card-body">
             <div className="booking-device">
               <div className="booking-device-img">
@@ -207,8 +180,6 @@ export default function BookingSummary({ data, type }) {
             </div>
           </CardBody>
         </Card>
-
-      
       </Col>
     </>
   );

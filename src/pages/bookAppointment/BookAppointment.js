@@ -154,7 +154,7 @@ function BookAppointment() {
     console.log("Formatted appointment data:", formattedData);
     
     if (!formattedData.id) {
-      toastMessage("error", "User profile not found. Please login again.");
+      toastMessage("error", "Seems you are not logged in, Please login.");
       setBookingLoading(false);
       return;
     }

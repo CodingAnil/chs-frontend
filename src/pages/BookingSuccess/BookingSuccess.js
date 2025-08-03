@@ -11,6 +11,7 @@ import {
   User,
   FileText,
   CheckCircle,
+  Truck,
 } from "react-feather";
 import Header from "../../components/Header";
 import Breadcrumb from "../../components/Breadcrumb";
@@ -35,7 +36,6 @@ export const formatDate = (dateString) => {
 const formatTime = (timeString) => {
   if (!timeString) return "Not specified";
   
-  // Handle 24-hour format (HH:MM)
   if (timeString.includes(":") && timeString.length === 5) {
     const [hours, minutes] = timeString.split(":");
     const hour = parseInt(hours);
@@ -77,7 +77,7 @@ const getRecurringPatternDisplay = (pattern) => {
 
 export default function BookingSuccess() {
   const location = useLocation();
-  const type = location.state?.type || "doctor"; // Default to doctor if no type specified
+  const type = location.state?.type || "doctor";
   
   const data = useSelector(
     (state) => state?.PATIENT?.data?.user?.getAppointmentResult
@@ -89,7 +89,7 @@ export default function BookingSuccess() {
 
   useEffect(() => {
     dispatch(getAppointment(getAppointmentId?.appointment_id));
-  }, []);
+  }, [dispatch, getAppointmentId]);
 
   const getConsultationType = (type) => {
     switch (type?.toLowerCase()) {
@@ -120,7 +120,7 @@ export default function BookingSuccess() {
       case "consult":
         return (
           <>
-            <Home size={15} /> Consult
+            <User size={15} /> In-Person Consult
           </>
         );
       case "lab":
@@ -144,7 +144,6 @@ export default function BookingSuccess() {
     }
   };
 
-  // Get the correct professional data based on type
   const professionalData = type === "nurse" 
     ? (data?.refNurse || data?.nurse)
     : type === "pathology"
@@ -193,6 +192,58 @@ export default function BookingSuccess() {
     ? "Back to Services"
     : "Back to Doctors";
 
+  const renderProfessionalImage = () => {
+    if (type === "ambulance") {
+      if (professionalData?.coverImage) {
+        return (
+          <img 
+            src={professionalData.coverImage} 
+            alt={`${professionalTitle} ${professionalData?.displayName || professionalData?.firstName}`}
+            className="professional-avatar"
+          />
+        );
+      } else {
+        return (
+          <div className="professional-avatar-icon">
+            <Truck size={40} color="#4e73df" />
+          </div>
+        );
+      }
+    } else if (type === "pathology") {
+      return (
+        <img 
+          src={professionalData?.coverImage || user_img} 
+          alt={`${professionalTitle} ${professionalData?.labName}`}
+          className="professional-avatar"
+        />
+      );
+    } else if (type === "nurse") {
+      if (professionalData?.profilePicture) {
+        return (
+          <img 
+            src={professionalData.profilePicture} 
+            alt={`${professionalTitle} ${professionalData?.firstName} ${professionalData?.lastName}`}
+            className="professional-avatar"
+          />
+        );
+      } else {
+        return (
+          <div className="professional-avatar-icon">
+            <User size={40} color="#17a2b8" />
+          </div>
+        );
+      }
+    } else {
+      return (
+        <img 
+          src={professionalData?.profilePicture || user_img} 
+          alt={`${professionalTitle} ${professionalData?.firstName}`}
+          className="professional-avatar"
+        />
+      );
+    }
+  };
+
   return (
     <>
       <style jsx>{`
@@ -235,6 +286,17 @@ export default function BookingSuccess() {
           border-radius: 50%;
           margin-right: 20px;
           object-fit: cover;
+        }
+        .professional-avatar-icon {
+          width: 80px;
+          height: 80px;
+          border-radius: 50%;
+          margin-right: 20px;
+          background: #eff6ff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid #e5f3ff;
         }
         .professional-details h4 {
           margin: 0 0 5px 0;
@@ -347,7 +409,7 @@ export default function BookingSuccess() {
                     <CheckCircle size={48} />
                   </div>
                   <h3>Booking Confirmed!</h3>
-                  <p>Your {type === "nurse" ? "nursing care" : type === "pathology" ? "lab test" : "appointment"} request has been submitted successfully</p>
+                  <p>Your {type === "nurse" ? "nursing care" : type === "pathology" ? "lab test" : type === "ambulance" ? "ambulance service" : "appointment"} request has been submitted successfully</p>
                 </div>
 
                 <div className="receipt-body">
@@ -361,23 +423,32 @@ export default function BookingSuccess() {
                   </div>
 
                   <div className="professional-info">
-                    <img 
-                      src={type === "pathology" ? (professionalData?.coverImage || user_img) : (professionalData?.profilePicture || user_img)} 
-                      alt={`${professionalTitle} ${type === "pathology" ? professionalData?.labName : professionalData?.firstName}`}
-                      className="professional-avatar"
-                    />
+                    {renderProfessionalImage()}
                     <div className="professional-details">
                       <h4>
                         {type === "pathology" 
                           ? professionalData?.labName || `${professionalData?.firstName} ${professionalData?.lastName}` 
+                          : type === "ambulance"
+                          ? professionalData?.displayName || `${professionalData?.firstName} ${professionalData?.lastName}`
                           : `${professionalTitle} ${professionalData?.firstName} ${professionalData?.lastName}`
                         }
                       </h4>
                       {professionalData?.achievement && (
                         <p><strong>Qualification:</strong> {professionalData?.achievement}</p>
                       )}
-                      {professionalData?.designation && (
-                        <p><strong>Designation:</strong> {professionalData?.designation}</p>
+                      {type === "ambulance" ? (
+                        <>
+                          {professionalData?.vehicleNumber && (
+                            <p><strong>Vehicle Number:</strong> {professionalData?.vehicleNumber}</p>
+                          )}
+                          {professionalData?.ambulanceType && (
+                            <p><strong>Ambulance Type:</strong> {professionalData?.ambulanceType}</p>
+                          )}
+                        </>
+                      ) : (
+                        professionalData?.designation && (
+                          <p><strong>Designation:</strong> {professionalData?.designation}</p>
+                        )
                       )}
                       {professionalData?.experience && (
                         <p><strong>Experience:</strong> {professionalData?.experience} years</p>
@@ -385,6 +456,7 @@ export default function BookingSuccess() {
                       {professionalData?.address && (
                         <p><MapPin size={14} /> {professionalData?.address}</p>
                       )}
+                      
                     </div>
                   </div>
 
@@ -429,7 +501,7 @@ export default function BookingSuccess() {
                     {data?.time && (
                       <div className="detail-card">
                         <h6><Clock className="icon" />Time</h6>
-                        <p>{data?.time}</p>
+                        <p>{formatTime(data?.time)}</p>
                       </div>
                     )}
 
@@ -492,7 +564,6 @@ export default function BookingSuccess() {
                       </div>
                     )}
 
-                    {/* Ambulance-specific fields */}
                     {type === 'ambulance' && (
                       <>
                         {data?.pickupLocation && (

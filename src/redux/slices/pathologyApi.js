@@ -159,11 +159,11 @@ export const updateTestStatus = createAsyncThunk(
 // MARK: Add Test Results API
 export const addTestResults = createAsyncThunk(
   "addTestResults",
-  async ({ appointmentId, prescriptionText, prescriptionFile, prescriptionFileKey }) => {
+  async (data) => {
     try {
       const response = await axiosInstance.put(
-        `/pathology/test-results/${appointmentId}`,
-        { prescriptionText, prescriptionFile, prescriptionFileKey }
+        `/pathology/test-results/${data.appointmentId}`,
+        data
       );
       if (response.status === 200) {
         toastMessage("success", "Test Results Added Successfully!");
@@ -390,4 +390,4 @@ const pathologyApiSlice = createSlice({
   },
 });
 
-export default pathologyApiSlice.reducer; 
+export default pathologyApiSlice.reducer;

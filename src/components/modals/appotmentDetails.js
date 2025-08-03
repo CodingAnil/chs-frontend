@@ -39,21 +39,26 @@ const AppointmentDetails = ({
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [error, setError] = useState(null);
   const [currentAppointment, setCurrentAppointment] = useState(selectedAppointment);
-
   useEffect(() => {
     setCurrentAppointment(selectedAppointment);
     setError(null);
     setPaymentStatus(null);
   }, [selectedAppointment]);
 
+
   if (!currentAppointment) return null;
+
+  
+ 
 
   const paid =
     currentAppointment.isPaid === true ||
     currentAppointment.paymentStatus?.toLowerCase() === "completed" ||
     currentAppointment.paymentStatus?.toLowerCase() === "paid";
 
-  const canPay = currentAppointment.calculatedFare > 0 && !paid;
+  const canPay = (currentAppointment.calculatedFare > 0 || currentAppointment.amount > 0) && !paid;
+
+ 
 
   const loadRazorpaySDK = () =>
     new Promise((resolve, reject) => {
@@ -159,6 +164,15 @@ const AppointmentDetails = ({
       setError("Missing appointment or user information");
       return;
     }
+    let amount = 0;
+    if (currentAppointment.refNurse != null){
+      amount = currentAppointment.amount;
+    }else if (currentAppointment.refPathology != null){
+      amount = currentAppointment.amount;
+    }
+    else{
+      amount = currentAppointment.calculatedFare
+    }
 
     setLoading(true);
     setError(null);
@@ -170,7 +184,7 @@ const AppointmentDetails = ({
       setPaymentStatus("Creating payment order...");
 
       const orderResponse = await callPostApi("/payment/create-order", {
-        amount: currentAppointment.calculatedFare,
+        amount: amount,
         currency: "INR",
       });
 
@@ -311,6 +325,8 @@ const AppointmentDetails = ({
         </div>
 
         {/* Payment Section */}
+        
+
         {currentAppointment.calculatedFare > 0 && (
           <div
             style={{
@@ -363,7 +379,78 @@ const AppointmentDetails = ({
                   ) : (
                     <>
                       <i className="fas fa-credit-card me-2"></i> Pay Now ₹
-                      {currentAppointment.calculatedFare?.toFixed(2)}
+                      {
+                      currentAppointment.calculatedFare?.toFixed(2)
+                      }
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  onClick={checkPaymentStatus}
+                  disabled={loading}
+                >
+                  <i className="fas fa-sync-alt"></i>
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+{currentAppointment?.amount > 0 && (
+          <div
+            style={{
+              marginBottom: 8,
+              padding: 12,
+              backgroundColor: paid ? "#f8f9fa" : "#fff3cd",
+              borderRadius: 6,
+              border: paid ? "1px solid #dee2e6" : "1px solid #ffeaa7",
+            }}
+          >
+            <div className="d-flex justify-content-between align-items-center">
+              <div>
+                <b>Fare:</b> ₹{currentAppointment.amount?.toFixed(2)}
+              </div>
+              <div>
+                <span
+                  style={{
+                    color: paid ? "green" : "#856404",
+                    fontWeight: 600,
+                    fontSize: 14,
+                  }}
+                >
+                  {paid ? (
+                    <>
+                      <i className="fas fa-check-circle me-1"></i> Paid
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-exclamation-circle me-1"></i> Pending Payment
+                    </>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {canPay && (
+              <div className="mt-2 d-flex gap-2">
+                <Button
+                  variant="success"
+                  size="sm"
+                  onClick={handlePayNow}
+                  disabled={loading}
+                  className="flex-grow-1"
+                >
+                  {loading ? (
+                    <>
+                      <Spinner animation="border" size="sm" className="me-2" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-credit-card me-2"></i> Pay Now ₹
+                      {(currentAppointment?.refNurse ? currentAppointment.amount?.toFixed(2) : currentAppointment.amount?.toFixed(2))}
                     </>
                   )}
                 </Button>

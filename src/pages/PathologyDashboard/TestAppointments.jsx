@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Badge, Card, Col, Row, Table, Modal, Form, Button } from "react-bootstrap";
+import { Badge, Card, Col, Row, Table, Modal, Form, Button, Pagination } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import { 
   getAllTestAppointments, 
@@ -18,13 +18,15 @@ const TestAppointments = ({ labDetails }) => {
     loading: state.PATHOLOGY.loading.pathology.getAllTestAppointmentsLoading || state.PATHOLOGY.loading.pathology.getAppointmentCountsLoading
   }));
   
-
-  
   const [selectedStatus, setSelectedStatus] = useState('Pending');
   const [selectedDate, setSelectedDate] = useState('');
   const [showAmountModal, setShowAmountModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [amount, setAmount] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedAppointmentDetails, setSelectedAppointmentDetails] = useState(null);
 
   useEffect(() => {
     if (labDetails?.profile?._id) {
@@ -103,6 +105,11 @@ const TestAppointments = ({ labDetails }) => {
     }
   };
 
+  const handleViewDetails = (appointment) => {
+    setSelectedAppointmentDetails(appointment);
+    setShowDetailsModal(true);
+  };
+
   const getStatusBadge = (status) => {
     const statusConfig = {
       'Pending': { variant: 'warning', text: 'Pending' },
@@ -122,6 +129,38 @@ const TestAppointments = ({ labDetails }) => {
       <Badge bg="primary"><i className="fa-solid fa-building me-1"></i>Lab</Badge>;
   };
 
+  const sortedAppointments = React.useMemo(() => {
+    if (!testAppointments) return [];
+    return [...testAppointments].sort((a, b) => 
+      new Date(b.date) - new Date(a.date)
+    );
+  }, [testAppointments]);
+
+  const sortAndFilterAppointments = React.useMemo(() => {
+    if (!testAppointments) return [];
+    
+    // First sort by date
+    const sorted = [...testAppointments].sort((a, b) => 
+      new Date(b.date) - new Date(a.date)
+    );
+
+    // Then prioritize in-progress items
+    return sorted.sort((a, b) => {
+      if (a.status === 'Accepted' && b.status !== 'Accepted') return -1;
+      if (b.status === 'Accepted' && a.status !== 'Accepted') return 1;
+      return 0;
+    });
+  }, [testAppointments]);
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentAppointments = sortAndFilterAppointments.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(sortAndFilterAppointments.length / itemsPerPage);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ height: '400px' }}>
@@ -133,7 +172,93 @@ const TestAppointments = ({ labDetails }) => {
   const appointments = testAppointments || [];
   const counts = appointmentsCounts || {};
 
+  const DetailModal = ({ appointment }) => (
+    <div className="appointment-details">
+      <Row>
+        <Col md={6}>
+          <h5 className="mb-4">Patient Information</h5>
+          <div className="mb-3">
+            <strong>Name:</strong> {appointment.patientId?.firstName} {appointment.patientId?.lastName}
+          </div>
+          <div className="mb-3">
+            <strong>Phone:</strong> {appointment.patientId?.phoneNumber || 'N/A'}
+          </div>
+          <div className="mb-3">
+            <strong>Email:</strong> {appointment.patientId?.email || 'N/A'}
+          </div>
+        </Col>
+        <Col md={6}>
+          <h5 className="mb-4">Appointment Details</h5>
+          <div className="mb-3">
+            <strong>Date:</strong> {new Date(appointment.date).toLocaleDateString()}
+          </div>
+          <div className="mb-3">
+            <strong>Time:</strong> {appointment.time || 'Not specified'}
+          </div>
+          <div className="mb-3">
+            <strong>Type:</strong> {appointment.appointmentType}
+          </div>
+          <div className="mb-3">
+            <strong>Status:</strong> {getStatusBadge(appointment.status)}
+          </div>
+        </Col>
+        <Col md={6}>
+          <h5 className="mb-4">Payment Details</h5>
+          <div className="mb-3">
+            <strong>Amount:</strong> ₹{appointment.amount || 'Not set'}
+          </div>
+          <div className="mb-3">
+            <strong>Payment Status:</strong>{' '}
+            <Badge bg={appointment.paymentStatus === 'Paid' ? 'success' : 'warning'}>
+              {appointment.paymentStatus || 'Pending'}
+            </Badge>
+          </div>
+        </Col>
+      </Row>
 
+      {appointment.testResults && (
+        <Row className="mt-4">
+          <Col md={12}>
+            <h5 className="mb-4">Test Results</h5>
+            <div className="test-results-box p-3 bg-light rounded">
+              <p><strong>Results:</strong> {appointment.testResults}</p>
+              {appointment.prescriptionText && (
+                <p><strong>Additional Notes:</strong> {appointment.prescriptionText}</p>
+              )}
+              {appointment.prescriptionFile && (
+                <div className="mt-2">
+                  <a 
+                    href={appointment.prescriptionFile}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-sm btn-primary"
+                  >
+                    <i className="fa-solid fa-download me-1"></i>
+                    Download Report
+                  </a>
+                </div>
+              )}
+            </div>
+          </Col>
+        </Row>
+      )}
+    </div>
+  );
+
+  const AmountModal = () => (
+    <Modal.Body>
+      <Form.Group>
+        <Form.Label>Amount (₹) <span className="text-danger">*</span></Form.Label>
+        <Form.Control
+          type="number"
+          placeholder="Enter test amount"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          min="0"
+        />
+      </Form.Group>
+    </Modal.Body>
+  );
 
   return (
     <div>
@@ -182,8 +307,10 @@ const TestAppointments = ({ labDetails }) => {
         <Col lg="2" md="4" sm="6">
           <Card className="text-center">
             <Card.Body>
-              <h4 className="text-primary">{counts.accepted || 0}</h4>
-              <p className="mb-0">Accepted</p>
+              <h4 className="text-primary">
+                {testAppointments?.filter(app => app.status === 'Accepted')?.length || 0}
+              </h4>
+              <p className="mb-0">In Progress</p>
             </Card.Body>
           </Card>
         </Col>
@@ -205,8 +332,6 @@ const TestAppointments = ({ labDetails }) => {
         </Col>
       </Row>
 
-
-
       {/* Appointments Table */}
       <Card>
         <Card.Body>
@@ -219,6 +344,7 @@ const TestAppointments = ({ labDetails }) => {
                   <th>Date & Time</th>
                   <th>Collection Type</th>
                   <th>Status</th>
+                  <th>Amount</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -232,8 +358,8 @@ const TestAppointments = ({ labDetails }) => {
                       </div>
                     </td>
                   </tr>
-                ) : appointments.length > 0 ? (
-                  appointments.map((appointment) => (
+                ) : currentAppointments.length > 0 ? (
+                  currentAppointments.map((appointment) => (
                     <tr key={appointment._id}>
                       <td>
                         <div>
@@ -273,7 +399,21 @@ const TestAppointments = ({ labDetails }) => {
                         {getStatusBadge(appointment.status)}
                       </td>
                       <td>
+                        {appointment.amount ? (
+                          <span>₹{appointment.amount}</span>
+                        ) : (
+                          <Badge bg="warning">Not Set</Badge>
+                        )}
+                      </td>
+                      <td>
                         <div className="d-flex gap-1">
+                          <button 
+                            className="btn btn-sm btn-info"
+                            onClick={() => handleViewDetails(appointment)}
+                          >
+                            <i className="fa-solid fa-eye me-1"></i>
+                            Details
+                          </button>
                           {appointment.status === 'Pending' && (
                             <button 
                               className="btn btn-sm btn-success"
@@ -315,38 +455,71 @@ const TestAppointments = ({ labDetails }) => {
               </tbody>
             </Table>
           </div>
+
+          {/* Pagination */}
+          {currentAppointments.length > 0 && (
+            <div className="d-flex justify-content-between align-items-center mt-3">
+              <div className="text-muted">
+                Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, sortedAppointments.length)} of {sortedAppointments.length} entries
+              </div>
+              <Pagination>
+                <Pagination.First 
+                  onClick={() => handlePageChange(1)} 
+                  disabled={currentPage === 1}
+                />
+                <Pagination.Prev 
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                />
+                {[...Array(totalPages)].map((_, index) => (
+                  <Pagination.Item
+                    key={index + 1}
+                    active={currentPage === index + 1}
+                    onClick={() => handlePageChange(index + 1)}
+                  >
+                    {index + 1}
+                  </Pagination.Item>
+                ))}
+                <Pagination.Next 
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                />
+                <Pagination.Last 
+                  onClick={() => handlePageChange(totalPages)}
+                  disabled={currentPage === totalPages}
+                />
+              </Pagination>
+            </div>
+          )}
         </Card.Body>
       </Card>
+
+      {/* Details Modal */}
+      <Modal 
+        show={showDetailsModal} 
+        onHide={() => setShowDetailsModal(false)}
+        size="lg"
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Appointment Details</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedAppointmentDetails && <DetailModal appointment={selectedAppointmentDetails} />}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* Amount Modal */}
       <Modal show={showAmountModal} onHide={() => setShowAmountModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Set Test Amount</Modal.Title>
         </Modal.Header>
-        <Modal.Body>
-          {selectedAppointment && (
-            <div className="mb-3">
-              <p><strong>Patient:</strong> {selectedAppointment.patientId?.firstName} {selectedAppointment.patientId?.lastName}</p>
-              <p><strong>Date:</strong> {new Date(selectedAppointment.date).toLocaleDateString()} {selectedAppointment.time}</p>
-              <p><strong>Test:</strong> {selectedAppointment.testName || "Lab Test"}</p>
-              <p><strong>Type:</strong> {selectedAppointment.appointmentType}</p>
-            </div>
-          )}
-          <Form.Group>
-            <Form.Label>Amount ($) <span className="text-danger">*</span></Form.Label>
-            <Form.Control
-              type="number"
-              placeholder="Enter test amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              min="0"
-              step="0.01"
-            />
-            <Form.Text className="text-muted">
-              Enter the test fee for this appointment
-            </Form.Text>
-          </Form.Group>
-        </Modal.Body>
+        <AmountModal />
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowAmountModal(false)}>
             Cancel
@@ -360,4 +533,4 @@ const TestAppointments = ({ labDetails }) => {
   );
 };
 
-export default TestAppointments; 
+export default TestAppointments;

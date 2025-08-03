@@ -9,6 +9,7 @@ import { callPutApi } from "../../_service";
 import { toastMessage } from "../../config/toast";
 import AppointmentDetails from "../../components/modals/appotmentDetails";
 import AppointmentReports from "../../components/modals/patientReports";
+import { Modal, Button, Form, Badge } from "react-bootstrap";
 
 const Appointments = ({ activeKey }) => {
   const [tab, setTab] = useState("Accepted");
@@ -29,6 +30,14 @@ const Appointments = ({ activeKey }) => {
     query,
     openModelWithItem,
   } = useGetMountData(`/nurse/appointment/${userProfileId}`);
+
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedDetails, setSelectedDetails] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   const getByFilter = async (filter) => {
     setTab(filter);
@@ -53,6 +62,69 @@ const Appointments = ({ activeKey }) => {
     } catch (error) {
       toastMessage("error", "Appointment update process failed!");
     }
+  };
+
+  const handlePaymentUpdate = async (id, status) => {
+    try {
+      setUploading(true);
+      const verifyResponse = await callPutApi(`/patient/appointment/${id}`, {
+        paymentDetails: { paymentStatus: status },
+      });
+
+      if (!verifyResponse.status) throw new Error(verifyResponse.message);
+
+      toastMessage("success", "Payment status updated successfully");
+      getAllData(`/nurse/appointment/${userProfileId}`);
+      setShowPaymentModal(false);
+    } catch (error) {
+      toastMessage("error", "Failed to update payment status!");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleMarkComplete = async (id) => {
+    try {
+      setUploading(true);
+      const verifyResponse = await callPutApi(`/patient/appointment/${id}`, {
+        status: "Completed",
+      });
+
+      if (!verifyResponse.status) throw new Error(verifyResponse.message);
+
+      toastMessage("success", "Appointment marked as completed");
+      getAllData(`/nurse/appointment/${userProfileId}`);
+      getCounts(`/nurse/appointment-count/${userProfileId}`);
+      setShowDetailsModal(false);
+    } catch (error) {
+      toastMessage("error", "Failed to complete appointment!");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleShowDetails = (appointment) => {
+    setSelectedDetails(appointment);
+    setShowDetailsModal(true);
+  };
+
+  const sortAppointments = (appointments) => {
+    return [...appointments].sort((a, b) => {
+      const dateA = new Date(`${a.date} ${a.time}`);
+      const dateB = new Date(`${b.date} ${b.time}`);
+      return dateB - dateA; // Always sort descending
+    });
+  };
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const paginatedAppointments = Appointments ? 
+    sortAppointments(Appointments).slice(indexOfFirstItem, indexOfLastItem) : [];
+  const totalPages = Math.ceil((Appointments?.length || 0) / itemsPerPage);
+
+  const handleViewDetails = (appointment) => {
+    setSelectedDetails(appointment);
+    setShowDetailsModal(true);
   };
 
   useEffect(() => {
@@ -109,8 +181,7 @@ const Appointments = ({ activeKey }) => {
         />
 
         {!loading &&
-          Appointments?.length > 0 &&
-          Appointments?.map((it, index) => {
+          paginatedAppointments.map((it, index) => {
             return (
               <div className="appointment-wrap" key={index}>
                 <ul>
@@ -152,15 +223,23 @@ const Appointments = ({ activeKey }) => {
                     <li className="appointment-action">
                       <ul>
                         <li>
-                          <a onClick={() => openModelWithItem("details", it)}>
+                          <a onClick={() => handleShowDetails(it)}>
                             <i className="fa-solid fa-eye"></i>
                           </a>
                         </li>
                         <li>
                           <a
-                            onClick={() => openModelWithItem("reports", it)}
+                            onClick={() => {
+                              setSelectedPayment(it);
+                              setShowPaymentModal(true);
+                            }}
                           >
-                            <i className="fa-solid fa-comments"></i>
+                            <i className="fa-solid fa-money-bill"></i>
+                          </a>
+                        </li>
+                        <li>
+                          <a onClick={() => handleMarkComplete(it?._id)}>
+                            <i className="fa-solid fa-check-circle"></i>
                           </a>
                         </li>
                         <li>
@@ -175,8 +254,9 @@ const Appointments = ({ activeKey }) => {
                   ) : (
                     <li className="appointment-detail-btn">
                       <a
-                        onClick={() => openModelWithItem("details", it)}
+                        onClick={() => handleViewDetails(it)}
                         className="start-link"
+                        style={{ cursor: 'pointer' }}
                       >
                         View Details
                         <i className="fa-regular fa-circle-right ms-1"></i>
@@ -188,17 +268,232 @@ const Appointments = ({ activeKey }) => {
             );
           })}
       </div>
-      <AppointmentDetails
-        showModal={isOpen == "details"}
-        handleModalClose={openModelWithItem}
-        selectedAppointment={customData}
-      />
-      <AppointmentReports
-        showModal={isOpen == "reports"}
-        handleClose={openModelWithItem}
-        customData={customData}
-        handleUpdate={handleUpdate}
-      />
+
+      {!loading && Appointments?.length > itemsPerPage && (
+        <div className="d-flex justify-content-center mt-4">
+          <ul className="pagination">
+            <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+              <button 
+                className="page-link" 
+                onClick={() => setCurrentPage(curr => Math.max(curr - 1, 1))}
+              >
+                Previous
+              </button>
+            </li>
+            {[...Array(totalPages)].map((_, idx) => (
+              <li key={idx} className={`page-item ${currentPage === idx + 1 ? 'active' : ''}`}>
+                <button 
+                  className="page-link" 
+                  onClick={() => setCurrentPage(idx + 1)}
+                >
+                  {idx + 1}
+                </button>
+              </li>
+            ))}
+            <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+              <button 
+                className="page-link" 
+                onClick={() => setCurrentPage(curr => Math.min(curr + 1, totalPages))}
+              >
+                Next
+              </button>
+            </li>
+          </ul>
+        </div>
+      )}
+
+      <Modal
+        show={showPaymentModal}
+        onHide={() => setShowPaymentModal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Update Payment Status</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedPayment && (
+            <div>
+              <div className="mb-4">
+                <h6>Appointment Details</h6>
+                <p>
+                  <strong>Patient:</strong>{" "}
+                  {selectedPayment?.appointmentPersonName ||
+                    selectedPayment?.patientId?.firstName}
+                </p>
+                <p>
+                  <strong>Date:</strong>{" "}
+                  {getDateFormate(selectedPayment?.date)} {selectedPayment?.time}
+                </p>
+                <p>
+                  <strong>Amount:</strong> ₹{selectedPayment?.amount || 0}
+                </p>
+                <p>
+                  <strong>Current Status:</strong>
+                  <Badge
+                    bg={
+                      selectedPayment?.paymentDetails?.paymentStatus ===
+                      "Completed"
+                        ? "success"
+                        : selectedPayment?.paymentDetails?.paymentStatus ===
+                          "Pending"
+                        ? "warning"
+                        : "danger"
+                    }
+                  >
+                    {selectedPayment?.paymentDetails?.paymentStatus || "Pending"}
+                  </Badge>
+                </p>
+              </div>
+              <div className="d-grid gap-2">
+                <Button
+                  variant="success"
+                  onClick={() =>
+                    handlePaymentUpdate(selectedPayment._id, "Completed")
+                  }
+                  disabled={
+                    uploading ||
+                    selectedPayment?.paymentDetails?.paymentStatus ===
+                      "Completed"
+                  }
+                >
+                  Mark as Paid
+                </Button>
+                <Button
+                  variant="warning"
+                  onClick={() =>
+                    handlePaymentUpdate(selectedPayment._id, "Pending")
+                  }
+                  disabled={
+                    uploading ||
+                    selectedPayment?.paymentDetails?.paymentStatus === "Pending"
+                  }
+                >
+                  Mark as Pending
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+      </Modal>
+
+      <Modal
+        show={showDetailsModal}
+        onHide={() => setShowDetailsModal(false)}
+        size="lg"
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Appointment Details</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedDetails && (
+            <div className="appointment-details">
+              <div className="row">
+                <div className="col-md-6">
+                  <div className="section mb-4">
+                    <h6 className="text-primary">Basic Information</h6>
+                    <p>
+                      <strong>Appointment ID:</strong>{" "}
+                      {getIdLastDigits(selectedDetails._id, "AP")}
+                    </p>
+                    <p>
+                      <strong>Date:</strong>{" "}
+                      {getDateFormate(selectedDetails.date)}
+                    </p>
+                    <p>
+                      <strong>Time:</strong> {selectedDetails.time}
+                    </p>
+                    <p>
+                      <strong>Type:</strong>{" "}
+                      {selectedDetails.appointmentType || "General"}
+                    </p>
+                    <p>
+                      <strong>Status:</strong>
+                      <Badge
+                        bg={
+                          selectedDetails.status === "Completed"
+                            ? "success"
+                            : selectedDetails.status === "Accepted"
+                            ? "primary"
+                            : selectedDetails.status === "Cancelled"
+                            ? "danger"
+                            : "warning"
+                        }
+                        className="ms-2"
+                      >
+                        {selectedDetails.status}
+                      </Badge>
+                    </p>
+                  </div>
+                </div>
+                <div className="col-md-6">
+                  <div className="section mb-4">
+                    <h6 className="text-primary">Patient Information</h6>
+                    <p>
+                      <strong>Name:</strong>{" "}
+                      {selectedDetails.appointmentPersonName ||
+                        selectedDetails?.patientId?.firstName}
+                    </p>
+                    <p>
+                      <strong>Email:</strong> {selectedDetails?.patientId?.email}
+                    </p>
+                    <p>
+                      <strong>Phone:</strong>{" "}
+                      {selectedDetails?.patientId?.phoneNumber}
+                    </p>
+                  </div>
+                  <div className="section mb-4">
+                    <h6 className="text-primary">Payment Information</h6>
+                    <p>
+                      <strong>Amount:</strong> ₹{selectedDetails.amount || 0}
+                    </p>
+                    <p>
+                      <strong>Payment Status:</strong>
+                      <Badge
+                        bg={
+                          selectedDetails?.paymentDetails?.paymentStatus ==
+                          "completed"
+                            ? "success"
+                            : "warning"
+                        }
+                      >
+                        {selectedDetails?.paymentDetails?.paymentStatus ||
+                          "Pending"}
+                      </Badge>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          {selectedDetails?.status === "Accepted" && (
+            <>
+              <Button
+                variant="success"
+                onClick={() => handleMarkComplete(selectedDetails._id)}
+                disabled={uploading}
+              >
+                Mark as Completed
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setShowDetailsModal(false);
+                  setSelectedPayment(selectedDetails);
+                  setShowPaymentModal(true);
+                }}
+              >
+                Update Payment
+              </Button>
+            </>
+          )}
+          <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

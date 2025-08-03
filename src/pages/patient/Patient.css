@@ -49067,7 +49067,7 @@ ul li {
 }
 
 .appointment-wrap>ul>li.appointment-info {
-    min-width: 190px
+    max-width: 140px
 }
 
 .appointment-wrap>ul>li.mail-info-patient {
@@ -52752,3 +52752,19 @@ ul li {
 .finent-veterinary-sec .care-list li:last-child::after {
   display: none;
 }
+
+/* Add these styles to your CSS */
+.appointment-details .section {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 1rem;
+  }
+  
+  .appointment-details .section:last-child {
+    border-bottom: none;
+  }
+  
+  .badge {
+    padding: 0.5em 0.8em;
+    font-size: 0.85em;
+    border-radius: 4px;
+  }

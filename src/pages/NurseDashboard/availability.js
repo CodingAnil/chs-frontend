@@ -66,6 +66,7 @@ const Availability = ({ UserDetails }) => {
 
   const handleSubmit = async () => {
     try {
+      debugger;
       const res = await callPutApi(`/nurse/${userId}/availability-details`, availabilityData);
       if (res.status) {
         toastMessage("success", "Availability updated successfully!");

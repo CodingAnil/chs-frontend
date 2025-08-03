@@ -25,6 +25,8 @@ const Requests = ({ activeKey }) => {
   const [showAmountModal, setShowAmountModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [amount, setAmount] = useState("");
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedDetails, setSelectedDetails] = useState(null);
 
   const userProfileId = getLocalStorage(STORAGE.USER_KEY)?.profile?._id;
 
@@ -136,6 +138,12 @@ const Requests = ({ activeKey }) => {
     }
   }, [activeKey, userProfileId]);
 
+  const handleShowDetails = (appointment) => {
+    debugger;
+    setSelectedDetails(appointment);
+    setShowDetailsModal(true);
+  };
+
   return (
     <div>
       <div className="dashboard-header">
@@ -211,6 +219,15 @@ const Requests = ({ activeKey }) => {
                 </li>
                 <li>
                   <ul className="request-action">
+                  <li>
+                      <span
+                        onClick={() => handleShowDetails(it)}
+                        className="accept-link"
+                        style={{ cursor: "pointer" }}
+                      >
+                        <i className="fa-solid fa-info-circle text-primary"></i> View Details
+                      </span>
+                    </li>
                     <li>
                       <span
                         onClick={() => handleAcceptWithAmount(it)}
@@ -258,17 +275,17 @@ const Requests = ({ activeKey }) => {
             </div>
           )}
           <Form.Group>
-            <Form.Label>Amount ($) <span className="text-danger">*</span></Form.Label>
+            <Form.Label>Amount ₹ <span className="text-danger">*</span></Form.Label>
             <Form.Control
               type="number"
-              placeholder="Enter amount"
+              placeholder="Enter amount in Rupees"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               min="0"
-              step="0.01"
+              step="1"
             />
             <Form.Text className="text-muted">
-              Enter the consultation fee for this appointment
+              Enter the consultation fee for this appointment (in Rupees)
             </Form.Text>
           </Form.Group>
         </Modal.Body>
@@ -281,6 +298,88 @@ const Requests = ({ activeKey }) => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Details Modal */}
+      <Modal 
+  show={showDetailsModal} 
+  onHide={() => setShowDetailsModal(false)} 
+  centered
+  size="lg"
+>
+  <Modal.Header closeButton>
+    <Modal.Title>Appointment Details</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    {selectedDetails ? (
+      <div className="appointment-details">
+        {/* Basic Information */}
+        <div className="section mb-4">
+          <h6 className="text-primary mb-3">Basic Information</h6>
+          <p><strong>Appointment ID:</strong> {getIdLastDigits(selectedDetails?._id, "APT")}</p>
+          <p><strong>Status:</strong> <span className={`badge ${
+            selectedDetails?.status === 'Pending' ? 'bg-warning' :
+            selectedDetails?.status === 'Accepted' ? 'bg-success' :
+            selectedDetails?.status === 'Completed' ? 'bg-primary' : 'bg-danger'
+          }`}>{selectedDetails?.status}</span></p>
+          <p><strong>Type:</strong> {selectedDetails?.appointmentType}</p>
+          <p><strong>Booking Type:</strong> {selectedDetails?.bookingType}</p>
+          <p><strong>Date:</strong> {getDateFormate(selectedDetails?.date)}</p>
+          <p><strong>Start Time:</strong> {selectedDetails?.startTime}</p>
+          {selectedDetails?.duration && <p><strong>Duration:</strong> {selectedDetails?.duration} hour(s)</p>}
+        </div>
+
+        {/* Patient Information */}
+        <div className="section mb-4">
+          <h6 className="text-primary mb-3">Patient Information</h6>
+          <p><strong>Patient ID:</strong> {getIdLastDigits(selectedDetails?.patientId?._id, "PT")}</p>
+          <p><strong>Name:</strong> {`${selectedDetails?.patientId?.firstName || ''} ${selectedDetails?.patientId?.lastName || ''}`}</p>
+          <p><strong>Gender:</strong> {selectedDetails?.patientId?.gender}</p>
+          <p><strong>Email:</strong> {selectedDetails?.patientId?.email}</p>
+          <p><strong>Phone:</strong> {selectedDetails?.patientId?.phoneNumber}</p>
+          <p><strong>Address:</strong> {selectedDetails?.patientId?.address}</p>
+        </div>
+
+        {/* Appointment Details */}
+        <div className="section mb-4">
+          <h6 className="text-primary mb-3">Additional Details</h6>
+          <p><strong>Reason:</strong> {selectedDetails?.reason || 'Not specified'}</p>
+          {selectedDetails?.symptoms && <p><strong>Symptoms:</strong> {selectedDetails?.symptoms}</p>}
+          <p><strong>Priority Booking:</strong> {selectedDetails?.priorityBooking ? 'Yes' : 'No'}</p>
+          {selectedDetails?.bookingType === 'multiple' && (
+            <>
+              <p><strong>Recurring Pattern:</strong> {selectedDetails?.recurringPattern}</p>
+              <p><strong>Hourly Duration:</strong> {selectedDetails?.hourlyDuration} hour(s)</p>
+            </>
+          )}
+        </div>
+
+        {/* Payment Information */}
+        <div className="section mb-4">
+          <h6 className="text-primary mb-3">Payment Information</h6>
+          <p><strong>Payment Status:</strong> {selectedDetails?.paymentDetails?.paymentStatus}</p>
+          {selectedDetails?.amount && <p><strong>Amount:</strong> ₹{selectedDetails?.amount}</p>}
+          {selectedDetails?.calculatedFare > 0 && (
+            <p><strong>Calculated Fare:</strong> ${selectedDetails?.calculatedFare}</p>
+          )}
+        </div>
+
+        {/* System Information */}
+        <div className="section">
+          <h6 className="text-primary mb-3">System Information</h6>
+          <p><strong>Created:</strong> {new Date(selectedDetails?.createdAt).toLocaleString()}</p>
+          <p><strong>Last Updated:</strong> {new Date(selectedDetails?.updatedAt).toLocaleString()}</p>
+        </div>
+      </div>
+    ) : (
+      <p>Loading details...</p>
+    )}
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>
+      Close
+    </Button>
+  </Modal.Footer>
+</Modal>
     </div>
   );
 };

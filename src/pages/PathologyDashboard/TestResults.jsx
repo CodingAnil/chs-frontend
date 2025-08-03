@@ -7,6 +7,7 @@ import {
 } from "../../redux/slices/pathologyApi";
 import { Spinner } from "reactstrap";
 import { toastMessage } from "../../config/toast";
+import { uploadFile } from "../../helpers/upload"; // Add this import at top
 
 const TestResults = ({ labDetails }) => {
   const dispatch = useDispatch();
@@ -20,16 +21,18 @@ const TestResults = ({ labDetails }) => {
   const [resultData, setResultData] = useState({
     results: '',
     notes: '',
-    file: null
+    file: null,
+    existingFile: null
   });
   const [uploading, setUploading] = useState(false);
+  const [activeTab, setActiveTab] = useState('inprogress'); // Add this state
 
   useEffect(() => {
     if (labDetails?.profile?._id) {
-      // Only get accepted appointments for test results
       dispatch(getAllTestAppointments({
         labId: labDetails.profile._id,
-        status: 'Accepted'
+        // Get both Accepted and Completed appointments
+        status: 'Accepted,Completed'
       }));
     }
   }, [dispatch, labDetails?.profile?._id]);
@@ -38,9 +41,10 @@ const TestResults = ({ labDetails }) => {
     setSelectedAppointment(appointment);
     setShowModal(true);
     setResultData({
-      results: appointment.testResults || '',
-      notes: appointment.notes || '',
-      file: null
+      results: appointment.prescriptionText || appointment.testResults || '',
+      notes: appointment.comments || appointment.notes || '',
+      file: null,
+      existingFile: appointment.prescriptionFile || appointment.reportFile
     });
   };
 
@@ -72,53 +76,95 @@ const TestResults = ({ labDetails }) => {
 
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('appointmentId', selectedAppointment._id);
-      formData.append('results', resultData.results);
-      formData.append('notes', resultData.notes);
-      
+      let fileUrl = null;
+      let fileKey = null;
+
       if (resultData.file) {
-        formData.append('file', resultData.file);
+        const uploadResult = await uploadFile(resultData.file);
+        if (!uploadResult.status) {
+          throw new Error(uploadResult.message);
+        }
+        fileUrl = uploadResult.url;
+        fileKey = uploadResult.key;
       }
 
-      const resultAction = await dispatch(addTestResults(formData));
+      const testResultData = {
+        appointmentId: selectedAppointment._id,
+        prescriptionText: resultData.results,
+        prescriptionFile: fileUrl || resultData.existingFile,
+        prescriptionFileKey: fileKey,
+        comments: resultData.notes,
+        status: "Completed"
+      };
+
+      const resultAction = await dispatch(addTestResults(testResultData));
 
       if (addTestResults.fulfilled.match(resultAction)) {
         toastMessage("success", "Test results added successfully");
         setShowModal(false);
         setSelectedAppointment(null);
-        setResultData({ results: '', notes: '', file: null });
+        setResultData({ results: '', notes: '', file: null, existingFile: null });
         
         // Refresh appointments
-        dispatch(getAllTestAppointments({
+        await dispatch(getAllTestAppointments({
           labId: labDetails.profile._id,
-          status: 'Accepted'
+          status: 'Accepted,Completed'
         }));
       }
     } catch (error) {
-      toastMessage("error", "Failed to add test results");
+      console.error("Error adding test results:", error);
+      toastMessage("error", error.message || "Failed to add test results");
     } finally {
       setUploading(false);
     }
   };
 
+  // Add this function before getCollectionTypeBadge
   const getStatusBadge = (status) => {
+    const normalizedStatus = status?.toLowerCase() || '';
     const statusConfig = {
-      'Pending': { variant: 'warning', text: 'Pending' },
-      'Created': { variant: 'info', text: 'Created' },
-      'Accepted': { variant: 'primary', text: 'Accepted' },
-      'Completed': { variant: 'success', text: 'Completed' },
-      'Cancelled': { variant: 'danger', text: 'Cancelled' }
+      'pending': { variant: 'warning', text: 'Pending' },
+      'created': { variant: 'info', text: 'Created' },
+      'accepted': { variant: 'primary', text: 'Accepted' },
+      'completed': { variant: 'success', text: 'Completed' },
+      'cancelled': { variant: 'danger', text: 'Cancelled' }
     };
     
-    const config = statusConfig[status] || { variant: 'secondary', text: status };
+    const config = statusConfig[normalizedStatus] || { variant: 'secondary', text: status };
     return <Badge bg={config.variant}>{config.text}</Badge>;
   };
 
   const getCollectionTypeBadge = (type) => {
-    return type === 'Home Collection' ? 
-      <Badge bg="success"><i className="fa-solid fa-home me-1"></i>Home</Badge> :
-      <Badge bg="primary"><i className="fa-solid fa-building me-1"></i>Lab</Badge>;
+    const collectionType = type?.toLowerCase() || '';
+    if (collectionType === 'home collection' || collectionType === 'home') {
+      return <Badge bg="success"><i className="fa-solid fa-home me-1"></i>Home</Badge>;
+    }
+    return <Badge bg="primary"><i className="fa-solid fa-building me-1"></i>Lab</Badge>;
+  };
+
+  // Update getStatusInfo function to handle payment status properly
+  const getStatusInfo = (appointment) => {
+    const statusBadge = getStatusBadge(appointment.status);
+    const paymentStatus = appointment.paymentStatus?.toLowerCase();
+    const isPaid = paymentStatus === 'paid' || paymentStatus === 'completed';
+    
+    const paymentBadge = (
+      <Badge bg={isPaid ? 'success' : 'warning'}>
+        {isPaid ? 'Paid' : 'Payment Pending'}
+      </Badge>
+    );
+
+    return (
+      <div className="d-flex flex-column gap-1">
+        {statusBadge}
+        {paymentBadge}
+      </div>
+    );
+  };
+
+  // Add this helper function near the top with other utility functions
+  const hasTestResults = (appointment) => {
+    return !!(appointment.prescriptionText || appointment.testResults || appointment.prescriptionFile || appointment.reportFile);
   };
 
   if (loading) {
@@ -131,6 +177,7 @@ const TestResults = ({ labDetails }) => {
 
   const appointments = testAppointments || [];
   const acceptedAppointments = appointments.filter(app => app.status === 'Accepted');
+  const completedAppointments = appointments.filter(app => app.status === 'Completed');
 
   return (
     <div>
@@ -140,125 +187,221 @@ const TestResults = ({ labDetails }) => {
 
       {/* Summary Cards */}
       <Row className="mb-4">
-        <Col lg="6" md="6">
+        <Col lg="4" md="4">
           <Card className="text-center">
             <Card.Body>
-              <h4 className="text-warning">{acceptedAppointments.filter(app => !app.testResults).length}</h4>
+              <h4 className="text-warning">{acceptedAppointments.length}</h4>
               <p className="mb-0">Tests In Progress</p>
             </Card.Body>
           </Card>
         </Col>
-        <Col lg="6" md="6">
+        <Col lg="4" md="4">
           <Card className="text-center">
             <Card.Body>
-              <h4 className="text-success">{acceptedAppointments.filter(app => app.testResults).length}</h4>
+              <h4 className="text-success">{completedAppointments.length}</h4>
               <p className="mb-0">Completed Tests</p>
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col lg="4" md="4">
+          <Card className="text-center">
+            <Card.Body>
+              <h4 className="text-primary">{appointments.length}</h4>
+              <p className="mb-0">Total Tests</p>
             </Card.Body>
           </Card>
         </Col>
       </Row>
 
+      {/* Tab Buttons */}
+      <div className="mb-4">
+        <div className="btn-group">
+          <button
+            className={`btn ${activeTab === 'inprogress' ? 'btn-primary' : 'btn-outline-primary'}`}
+            onClick={() => setActiveTab('inprogress')}
+          >
+            In Progress ({acceptedAppointments.length})
+          </button>
+          <button
+            className={`btn ${activeTab === 'completed' ? 'btn-primary' : 'btn-outline-primary'}`}
+            onClick={() => setActiveTab('completed')}
+          >
+            Completed ({completedAppointments.length})
+          </button>
+        </div>
+      </div>
+
       {/* Test Results Table */}
       <Card>
         <Card.Header>
-          <h5>Test Results</h5>
+          <h5>{activeTab === 'inprogress' ? 'In Progress Tests' : 'Completed Tests'}</h5>
         </Card.Header>
         <Card.Body>
           <div className="table-responsive">
             <Table striped bordered hover>
               <thead>
                 <tr>
-                  <th>Patient</th>
-                  <th>Tests</th>
-                  <th>Date</th>
-                  <th>Collection Type</th>
+                  <th>Patient Details</th>
+                  <th>Test Info</th>
                   <th>Status</th>
                   <th>Results</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {acceptedAppointments.length > 0 ? (
-                  acceptedAppointments.map((appointment) => (
-                    <tr key={appointment._id}>
-                      <td>
-                        <div>
-                          <strong>
-                            {appointment.patientId?.firstName || appointment.name || 'Unknown Patient'} {appointment.patientId?.lastName || ''}
-                          </strong>
-                          <br />
-                          <small className="text-muted">{appointment.patientId?.phoneNumber || 'N/A'}</small>
-                        </div>
-                      </td>
-                      <td>
-                        <div>
-                          {appointment.testName && appointment.testName.trim() ? (
-                            <Badge bg="light" text="dark" className="me-1 mb-1">
-                              {appointment.testName}
-                            </Badge>
-                          ) : (
-                            <Badge bg="light" text="dark" className="me-1 mb-1">
-                              General Test
-                            </Badge>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div>
-                          <strong>
-                            {appointment.date ? new Date(appointment.date).toLocaleDateString() : 'Date TBD'}
-                          </strong>
-                          <br />
-                          <small>{appointment.time || 'Time TBD'}</small>
-                        </div>
-                      </td>
-                      <td>
-                        {getCollectionTypeBadge(appointment.appointmentType)}
-                      </td>
-                      <td>
-                        {getStatusBadge(appointment.status)}
-                      </td>
-                      <td>
-                        {appointment.testResults ? (
-                          <div>
-                            <Badge bg="success">Available</Badge>
-                            {appointment.reportFile && (
-                              <div className="mt-1">
+                {activeTab === 'inprogress' ? (
+                  acceptedAppointments.length > 0 ? (
+                    acceptedAppointments.map((appointment) => (
+                      <tr key={appointment._id}>
+                        <td>
+                          <div className="d-flex flex-column">
+                            <strong>
+                              {appointment.patientId?.firstName || appointment.name || 'Unknown Patient'} {appointment.patientId?.lastName || ''}
+                            </strong>
+                            <small className="text-muted">{appointment.patientId?.phoneNumber || 'N/A'}</small>
+                            <small className="mt-1">
+                              Amount: {appointment.amount ? `₹${appointment.amount}` : 'Pending'}
+                            </small>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="d-flex flex-column">
+                            <div>
+                              <Badge bg="light" text="dark">
+                                {appointment.testName || 'General Test'}
+                              </Badge>
+                            </div>
+                            <small className="mt-1">
+                              {appointment.date ? new Date(appointment.date).toLocaleDateString() : 'Date TBD'}
+                              {appointment.time && `, ${appointment.time}`}
+                            </small>
+                            <small>{getCollectionTypeBadge(appointment.appointmentType)}</small>
+                          </div>
+                        </td>
+                        <td>{getStatusInfo(appointment)}</td>
+                        <td>
+                          {hasTestResults(appointment) ? (
+                            <div className="d-flex flex-column gap-2">
+                              <Badge bg="success">Available</Badge>
+                              {(appointment.prescriptionFile || appointment.reportFile) && (
                                 <a 
-                                  href={appointment.reportFile} 
-                                  target="_blank" 
+                                  href={appointment.prescriptionFile || appointment.reportFile}
+                                  target="_blank"
                                   rel="noopener noreferrer"
                                   className="btn btn-sm btn-outline-primary"
                                 >
                                   <i className="fa-solid fa-download me-1"></i>
                                   Download
                                 </a>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <Badge bg="secondary">Pending</Badge>
-                        )}
-                      </td>
-                      <td>
-                        <button 
-                          className="btn btn-sm btn-primary"
-                          onClick={() => handleAddResults(appointment)}
-                        >
-                          {appointment.testResults ? 'Update' : 'Add'} Results
-                        </button>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge bg="warning">Pending</Badge>
+                          )}
+                        </td>
+                        <td>
+                          <button 
+                            className="btn btn-sm btn-primary"
+                            onClick={() => handleAddResults(appointment)}
+                          >
+                            {hasTestResults(appointment) ? 'Update' : 'Add'} Results
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="text-center">
+                        <div className="py-4">
+                          <i className="fa-solid fa-file-medical fa-3x text-muted mb-3"></i>
+                          <p className="text-muted">No tests in progress</p>
+                        </div>
                       </td>
                     </tr>
-                  ))
+                  )
                 ) : (
-                  <tr>
-                    <td colSpan="7" className="text-center">
-                      <div className="py-4">
-                        <i className="fa-solid fa-file-medical fa-3x text-muted mb-3"></i>
-                        <p className="text-muted">No accepted test appointments found</p>
-                      </div>
-                    </td>
-                  </tr>
+                  completedAppointments.length > 0 ? (
+                    completedAppointments.map((appointment) => (
+                      <tr key={appointment._id}>
+                        <td>
+                          <div className="d-flex flex-column">
+                            <strong>
+                              {appointment.patientId?.firstName || appointment.name || 'Unknown Patient'} {appointment.patientId?.lastName || ''}
+                            </strong>
+                            <small className="text-muted">{appointment.patientId?.phoneNumber || 'N/A'}</small>
+                            <small className="mt-1">
+                              Amount: {appointment.amount ? `₹${appointment.amount}` : 'Pending'}
+                            </small>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="d-flex flex-column">
+                            <div>
+                              <Badge bg="light" text="dark">
+                                {appointment.testName || 'General Test'}
+                              </Badge>
+                            </div>
+                            <small className="mt-1">
+                              {appointment.date ? new Date(appointment.date).toLocaleDateString() : 'Date TBD'}
+                              {appointment.time && `, ${appointment.time}`}
+                            </small>
+                            <small>{getCollectionTypeBadge(appointment.appointmentType)}</small>
+                          </div>
+                        </td>
+                        <td>{getStatusInfo(appointment)}</td>
+                        <td>
+                          {hasTestResults(appointment) ? (
+                            <div className="d-flex flex-column gap-2">
+                              <Badge bg="success">Available</Badge>
+                              {(appointment.prescriptionFile || appointment.reportFile) && (
+                                <a 
+                                  href={appointment.prescriptionFile || appointment.reportFile}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn btn-sm btn-outline-primary"
+                                >
+                                  <i className="fa-solid fa-download me-1"></i>
+                                  Download
+                                </a>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge bg="warning">Pending</Badge>
+                          )}
+                        </td>
+                        <td>
+                          <div>
+                            <button 
+                              className="btn btn-sm btn-primary mb-2 w-100"
+                              onClick={() => handleAddResults(appointment)}
+                            >
+                              {hasTestResults(appointment) ? 'Update' : 'Add'} Results
+                            </button>
+                            {appointment.reportFile && (
+                              <a 
+                                href={appointment.reportFile}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-sm btn-outline-secondary w-100"
+                              >
+                                <i className="fa-solid fa-download me-1"></i>
+                                Download Report
+                              </a>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="text-center">
+                        <div className="py-4">
+                          <i className="fa-solid fa-file-medical fa-3x text-muted mb-3"></i>
+                          <p className="text-muted">No completed tests found</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )
                 )}
               </tbody>
             </Table>
@@ -270,7 +413,7 @@ const TestResults = ({ labDetails }) => {
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>
-            {selectedAppointment?.testResults ? 'Update' : 'Add'} Test Results
+            Update Test Results
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -309,6 +452,25 @@ const TestResults = ({ labDetails }) => {
                   />
                 </Form.Group>
                 
+                {resultData.existingFile && (
+                  <div className="mb-3">
+                    <div className="d-flex align-items-center gap-2">
+                      <Badge bg="success">Current Report Available</Badge>
+                      <a 
+                        href={resultData.existingFile}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-sm btn-outline-primary"
+                      >
+                        View Current Report
+                      </a>
+                    </div>
+                    <small className="text-muted d-block mt-1">
+                      Upload a new file to replace the current one
+                    </small>
+                  </div>
+                )}
+                
                 <Form.Group className="mb-3">
                   <Form.Label>Upload Report File (Optional)</Form.Label>
                   <Form.Control
@@ -343,7 +505,7 @@ const TestResults = ({ labDetails }) => {
             disabled={uploading}
           >
             {uploading && <Spinner size="sm" className="me-2" />}
-            {selectedAppointment?.testResults ? 'Update' : 'Add'} Results
+            Update Results
           </button>
         </Modal.Footer>
       </Modal>
@@ -351,4 +513,4 @@ const TestResults = ({ labDetails }) => {
   );
 };
 
-export default TestResults; 
+export default TestResults;

@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react"; // Add useEffect
+import { Modal } from "react-bootstrap"; // Add this import at top
 import user_img from "../../assets/img/dr_profile.jpg";
 import { useDispatch } from "react-redux";
 import {
@@ -11,6 +12,7 @@ import { getDateFormate, getIdLastDigits } from "../../helpers/utils";
 import NotFound from "../../components/common/notFound";
 import AppointmentDetails from "../../components/modals/appotmentDetails";
 import DeleteModal from "../../components/modals/delete-modal";
+import Pagination from "../../components/common/pagination";
 
 // Utility to pick the actual provider name, especially for ambulance
 function getProviderName(ap) {
@@ -89,6 +91,11 @@ function getPaymentDetails(ap, showLabel = true) {
     ap.isPaid === true ||
     ap.paymentStatus === "Completed" ||
     ap.paymentStatus === "Paid";
+
+    debugger;
+
+
+if(ap.refAmbulance != null){
   if (ap.calculatedFare > 0 || ap.kilometersDriven > 0) {
     return (
       <div>
@@ -115,30 +122,118 @@ function getPaymentDetails(ap, showLabel = true) {
       </span>
     );
   }
+}
+if(ap.refNurse != null){
+  if (ap.amount > 0) {
+    return (
+      <div>
+        {showLabel && <b>Fare:</b>} ₹{ap.amount?.toFixed(2) || "0.00"}{" "}
+        <span style={{ color: paid ? "green" : "red", fontWeight: 600 }}>
+          {paid ? "Paid" : "Pending"}
+        </span>
+        
+      </div>
+    );
+  }
+  if (paid) {
+    // Mark pending if completed but never paid
+    return (
+      <span style={{ color: "red", fontWeight: 600 }}>
+        Pending Payment
+      </span>
+    );
+  }
+}
+
   return null;
+}
+
+function getReportDetails(ap) {
+  if (!ap.refPathology || ap.status !== "Completed") return null;
+  
+  const hasReport = ap.prescriptionFile || ap.reportFile;
+  const reportUrl = ap.prescriptionFile || ap.reportFile;
+  const testResults = ap.prescriptionText || ap.testResults;
+  
+  return {
+    hasReport,
+    reportUrl,
+    testResults
+  };
 }
 
 const MyAppointTabView = ({ appointmentData }) => {
   const userProfileId = getLocalStorage(STORAGE.USER_KEY)?.profile?._id;
   const [modalType, setModalType] = useState(""); // "details" or "delete"
   const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState('upcoming'); // Add this state
+  const [showReportModal, setShowReportModal] = useState(false); // Add this state
+  const itemsPerPage = 10;
   const dispatch = useDispatch();
 
-  const isUpcoming = (ap) => ["Pending", "Accepted"].includes(ap.status);
-  const isCancel = (ap) => ap.status === "Cancelled";
-  const isComplete = (ap) => ap.status === "Completed";
-  const upcomingAppointments = appointmentData.filter(isUpcoming);
-  const canceledAppointments = appointmentData.filter(isCancel);
-  const completedAppointments = appointmentData.filter(isComplete);
+  useEffect(() => {
+    // Reset pagination when tab changes
+    setCurrentPage(1);
+  }, [activeTab]);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setCurrentPage(1); // Reset to first page when changing tabs
+  };
+
+  const isUpcoming = (ap) => {
+    if (!ap || !ap.status) return false;
+    return ["Pending", "Accepted", "InProgress"].includes(ap.status);
+  };
+
+  const isCancel = (ap) => {
+    if (!ap || !ap.status) return false;
+    return ap.status === "Cancelled";
+  };
+
+  const isComplete = (ap) => {
+    if (!ap || !ap.status) return false;
+    return ap.status === "Completed";
+  };
+
+  const sortAppointments = (appointments) => {
+    if (!Array.isArray(appointments)) return [];
+    return [...appointments].sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateB - dateA;
+    });
+  };
+
+  const upcomingAppointments = sortAppointments(appointmentData?.filter(isUpcoming) || []);
+  const canceledAppointments = sortAppointments(appointmentData?.filter(isCancel) || []);
+  const completedAppointments = sortAppointments(appointmentData?.filter(isComplete) || []);
+
+  const paginateData = (items) => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return items.slice(startIndex, startIndex + itemsPerPage);
+  };
 
   const openModal = (type, appointment = null) => {
-    setModalType(type);
+    if (type === "report") {
+      setShowReportModal(true);
+    } else {
+      setModalType(type);
+    }
     setSelectedAppointment(appointment);
   };
+
   const closeModal = () => {
     setModalType("");
     setSelectedAppointment(null);
   };
+
+  const closeReportModal = () => {
+    setShowReportModal(false);
+    setSelectedAppointment(null);
+  };
+
   const handleCancelAppointment = async (id) => {
     await dispatch(
       updateAppointmentStatus({ data: { id: id, status: "Cancelled" } })
@@ -163,9 +258,22 @@ const MyAppointTabView = ({ appointmentData }) => {
           </div>
           <div className="text-muted" style={{ fontSize: 13 }}>
             #{getIdLastDigits(ap._id, "AP")}
+            {(ap.refAmbulance || ap.refNurse || ap.refPathology) && (
+              <>
+                <br />
+                {ap.refAmbulance && ap.calculatedFare > 0 && (
+                  <>Fare: ₹{ap.calculatedFare?.toFixed(2)} <span style={{ color: ap.isPaid ? "green" : "red" }}>{ap.isPaid ? "Paid" : "Pending"}</span></>
+                )}
+                {ap.refNurse && ap.amount > 0 && (
+                  <>Fare: ₹{ap.amount?.toFixed(2)} <span style={{ color: ap.isPaid ? "green" : "red" }}>{ap.isPaid ? "Paid" : "Pending"}</span></>
+                )}
+                {ap.refPathology && ap.amount > 0 && (
+                  <>Test Fee: ₹{ap.amount?.toFixed(2)} <span style={{ color: ap.isPaid ? "green" : "red" }}>{ap.isPaid ? "Paid" : "Pending"}</span></>
+                )}
+              </>
+            )}
           </div>
           {getAmbulanceDetails(ap)}
-          {getPaymentDetails(ap)}
         </div>
       </div>
       <div className="d-flex flex-column align-items-end gap-2">
@@ -186,6 +294,15 @@ const MyAppointTabView = ({ appointmentData }) => {
           >
             Details
           </button>
+          {ap.refPathology && ap.status === "Completed" && (
+            <button
+              className="btn btn-outline-info btn-sm me-2"
+              onClick={() => openModal("report", ap)}
+              disabled={!getReportDetails(ap)?.hasReport && !getReportDetails(ap)?.testResults}
+            >
+              View Report
+            </button>
+          )}
           {canCancel && (
             <button
               className="btn btn-outline-danger btn-sm"
@@ -198,10 +315,26 @@ const MyAppointTabView = ({ appointmentData }) => {
       </div>
     </div>
   );
-  const renderTabAppointments = (appts, emptyMsg, canCancel = false) =>
-    appts.length === 0
-      ? <NotFound message={emptyMsg} />
-      : appts.map(ap => renderAppointmentRow(ap, canCancel));
+  const renderTabAppointments = (appts, emptyMsg, canCancel = false) => {
+    const paginatedAppts = paginateData(appts);
+    return (
+      <>
+        {paginatedAppts.length === 0 ? (
+          <NotFound message={emptyMsg} />
+        ) : (
+          <>
+            {paginatedAppts.map(ap => renderAppointmentRow(ap, canCancel))}
+            <Pagination
+              currentPage={currentPage}
+              totalItems={appts.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+            />
+          </>
+        )}
+      </>
+    );
+  };
 
   return (
     <>
@@ -210,20 +343,29 @@ const MyAppointTabView = ({ appointmentData }) => {
         <div className="appointment-tabs">
           <ul className="nav nav-pills inner-tab" role="tablist">
             <li className="nav-item" role="presentation">
-              <button className="nav-link active" id="pills-upcoming-tab"
-                data-bs-toggle="pill" data-bs-target="#pills-upcoming" type="button" role="tab">
+              <button 
+                className={`nav-link ${activeTab === 'upcoming' ? 'active' : ''}`}
+                onClick={() => handleTabChange('upcoming')}
+                type="button"
+              >
                 Upcoming <span>{upcomingAppointments.length}</span>
               </button>
             </li>
             <li className="nav-item" role="presentation">
-              <button className="nav-link" id="pills-cancel-tab"
-                data-bs-toggle="pill" data-bs-target="#pills-cancel" type="button" role="tab">
+              <button 
+                className={`nav-link ${activeTab === 'cancel' ? 'active' : ''}`}
+                onClick={() => handleTabChange('cancel')}
+                type="button"
+              >
                 Cancelled <span>{canceledAppointments.length}</span>
               </button>
             </li>
             <li className="nav-item" role="presentation">
-              <button className="nav-link" id="pills-complete-tab"
-                data-bs-toggle="pill" data-bs-target="#pills-complete" type="button" role="tab">
+              <button 
+                className={`nav-link ${activeTab === 'complete' ? 'active' : ''}`}
+                onClick={() => handleTabChange('complete')}
+                type="button"
+              >
                 Completed <span>{completedAppointments.length}</span>
               </button>
             </li>
@@ -231,15 +373,21 @@ const MyAppointTabView = ({ appointmentData }) => {
         </div>
       </div>
       <div className="tab-content appointment-tab-content p-2">
-        <div className="tab-pane fade show active" id="pills-upcoming" role="tabpanel">
-          {renderTabAppointments(upcomingAppointments, "No upcoming appointments found.", true)}
-        </div>
-        <div className="tab-pane fade" id="pills-cancel" role="tabpanel">
-          {renderTabAppointments(canceledAppointments, "No cancelled appointments found.")}
-        </div>
-        <div className="tab-pane fade" id="pills-complete" role="tabpanel">
-          {renderTabAppointments(completedAppointments, "No completed appointments found.")}
-        </div>
+        {activeTab === 'upcoming' && (
+          <div className="tab-pane fade show active">
+            {renderTabAppointments(upcomingAppointments, "No upcoming appointments found.", true)}
+          </div>
+        )}
+        {activeTab === 'cancel' && (
+          <div className="tab-pane fade show active">
+            {renderTabAppointments(canceledAppointments, "No cancelled appointments found.")}
+          </div>
+        )}
+        {activeTab === 'complete' && (
+          <div className="tab-pane fade show active">
+            {renderTabAppointments(completedAppointments, "No completed appointments found.")}
+          </div>
+        )}
       </div>
 
 
@@ -257,6 +405,34 @@ const MyAppointTabView = ({ appointmentData }) => {
                 {getAmbulanceDetails(ap) && <> <br />{getAmbulanceDetails(ap)}</>}
               </div>
               {getPaymentDetails(ap)}
+              {ap.refPathology && ap.status === "Completed" && (
+                <div className="mt-3">
+                  <strong>Test Report:</strong>
+                  {getReportDetails(ap)?.testResults && (
+                    <div className="mt-2 p-3 bg-light rounded">
+                      <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+                        {getReportDetails(ap).testResults}
+                      </pre>
+                    </div>
+                  )}
+                  {getReportDetails(ap)?.hasReport && (
+                    <div className="mt-2">
+                      <button
+                        className="btn btn-sm btn-primary"
+                        onClick={() => window.open(getReportDetails(ap).reportUrl, '_blank')}
+                      >
+                        <i className="fa-solid fa-file-medical me-2"></i>
+                        Download Report
+                      </button>
+                    </div>
+                  )}
+                  {!getReportDetails(ap)?.hasReport && !getReportDetails(ap)?.testResults && (
+                    <div className="text-muted mt-2">
+                      Report not available yet
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           ) : null
         }
@@ -268,6 +444,55 @@ const MyAppointTabView = ({ appointmentData }) => {
         title="Are you sure you want to cancel this appointment?"
         onConfirm={() => handleCancelAppointment(selectedAppointment?._id)}
       />
+
+      {/* Add Report Modal */}
+      <Modal show={showReportModal} onHide={closeReportModal} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Test Report</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedAppointment && (
+            <div>
+              <div className="mb-3">
+                <strong>Patient:</strong> {selectedAppointment.name || 'Patient'}
+                <br />
+                <strong>Test:</strong> {selectedAppointment.testName || 'General Test'}
+                <br />
+                <strong>Date:</strong> {getDateFormate(selectedAppointment.date)}
+              </div>
+
+              {getReportDetails(selectedAppointment)?.testResults && (
+                <div className="mb-3">
+                  <h6>Test Results:</h6>
+                  <div className="p-3 bg-light rounded">
+                    <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+                      {getReportDetails(selectedAppointment).testResults}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {getReportDetails(selectedAppointment)?.hasReport && (
+                <div className="mt-3">
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => window.open(getReportDetails(selectedAppointment).reportUrl, '_blank')}
+                  >
+                    <i className="fa-solid fa-file-medical me-2"></i>
+                    Download Report
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <button className="btn btn-secondary" onClick={closeReportModal}>
+            Close
+          </button>
+        </Modal.Footer>
+      </Modal>
+
       <style jsx>{`
         .appointment-wrap { border: 1px solid #ececec; margin-bottom: 14px; background: #fff; }
         .dashboard-header { margin-bottom: 10px;}

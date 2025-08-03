@@ -28,23 +28,25 @@ const schema = yup.object().shape({
     .required("Languages is required.")
     .min(1, "Please select at least one language."),
   qualifications: yup.object().shape({
-    licenseNumber: yup.string(),
-    experience: yup.string(),
+    qualification: yup.string().nullable(),
+    licenseNumber: yup.string().nullable(),
+    experience: yup.string().nullable(),
+    description: yup.string().nullable(),
     hospitalsWorked: yup.array().of(
       yup.object().shape({
-        name: yup.string(),
-        designation: yup.string(),
-        duration: yup.string()
+        name: yup.string().nullable(),
+        designation: yup.string().nullable(),
+        duration: yup.string().nullable(),
       })
-    )
+    ).nullable(),
   }),
-  skills: yup.array().of(yup.string()),
+  skills: yup.array().of(yup.string()).nullable(),
   documents: yup.object().shape({
-    idProof: yup.string(),
-    educationCertificates: yup.string(),
-    nursingLicense: yup.string(),
-    policeVerification: yup.string()
-  })
+    idProof: yup.string().nullable(),
+    educationCertificates: yup.string().nullable(),
+    nursingLicense: yup.string().nullable(),
+    policeVerification: yup.string().nullable(),
+  }),
 });
 
 const Profile = ({ getAllData, nurseDetails }) => {
@@ -53,6 +55,7 @@ const Profile = ({ getAllData, nurseDetails }) => {
   const [loading, setLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isOpen, setIsOpen] = useState({ is: false, id: null });
+  const [skillsInput, setSkillsInput] = useState("");
 
   const {
     control,
@@ -73,6 +76,7 @@ const Profile = ({ getAllData, nurseDetails }) => {
       email: nurseDetails?.profile?.email || '',
       languages: nurseDetails?.profile?.languages || [],
       qualifications: {
+        description: nurseDetails?.profile?.qualifications?.description || '',
         licenseNumber: nurseDetails?.profile?.qualifications?.licenseNumber || '',
         experience: nurseDetails?.profile?.qualifications?.experience || '',
         hospitalsWorked: nurseDetails?.profile?.qualifications?.hospitalsWorked || []
@@ -226,23 +230,38 @@ const Profile = ({ getAllData, nurseDetails }) => {
         phoneNumber: watch("phoneNumber"),
         email: watch("email"),
         languages: watch("languages"),
-        qualifications: watch("qualifications"),
-        skills: watch("skills"),
-        documents: watch("documents")
+        qualifications: {
+          qualification: watch("qualifications.qualification"),
+          licenseNumber: watch("qualifications.licenseNumber"),
+          experience: watch("qualifications.experience"),
+          description: watch("qualifications.description"),
+          hospitalsWorked: [
+            {
+              name: watch("qualifications.hospitalsWorked[0].name") || "",
+              designation: watch("qualifications.hospitalsWorked[0].designation") || "",
+              duration: watch("qualifications.hospitalsWorked[0].duration") || "",
+            },
+          ],
+        },
+        skills: watch("skills") || [],
+        documents: watch("documents"),
       };
+  
+      console.log("Submitting data:", JSON.stringify(updatedData, null, 2)); // Debug log
+  
       setLoading(true);
       const verifyResponse = await callPutApi(
         `/nurse/${nurseDetails?._id}`,
         updatedData
       );
-
+  
       if (!verifyResponse.status) throw new Error(verifyResponse.message);
       setLoading(false);
       toastMessage("success", "Profile updated successfully.");
       await getAllData("/user");
       const userProfile = getLocalStorage(STORAGE.USER_KEY);
       let profile = userProfile.profile;
-
+  
       let updatedStorage = {
         ...userProfile,
         name: watch("firstName"),
@@ -253,10 +272,11 @@ const Profile = ({ getAllData, nurseDetails }) => {
           ...updatedData,
         },
       };
-
+  
       setLocalStorage(STORAGE.USER_KEY, updatedStorage);
     } catch (error) {
       setLoading(false);
+      console.error("Profile update error:", error);
       toastMessage("error", "Profile update failed!");
     }
   };
@@ -264,22 +284,71 @@ const Profile = ({ getAllData, nurseDetails }) => {
   useEffect(() => {
     if (nurseDetails?.profile) {
       reset({
-        ...nurseDetails.profile,
+        firstName: nurseDetails.profile.firstName || "",
+        lastName: nurseDetails.profile.lastName || "",
+        displayName: nurseDetails.profile.displayName || "",
+        designation: nurseDetails.profile.designation || "",
+        phoneNumber: nurseDetails.profile.phoneNumber || "",
+        email: nurseDetails.profile.email || "",
+        languages: nurseDetails.profile.languages || [],
         qualifications: {
-          licenseNumber: nurseDetails.profile.qualifications?.licenseNumber || '',
-          experience: nurseDetails.profile.qualifications?.experience || '',
-          hospitalsWorked: nurseDetails.profile.qualifications?.hospitalsWorked || []
+          qualification: nurseDetails.profile.qualifications?.qualification || "",
+          licenseNumber: nurseDetails.profile.qualifications?.licenseNumber || "",
+          experience: nurseDetails.profile.qualifications?.experience || "",
+          description: nurseDetails.profile.qualifications?.description || "",
+          hospitalsWorked: nurseDetails.profile.qualifications?.hospitalsWorked?.length > 0
+            ? nurseDetails.profile.qualifications.hospitalsWorked
+            : [{ name: "", designation: "", duration: "" }],
         },
         skills: nurseDetails.profile.skills || [],
         documents: {
-          idProof: nurseDetails.profile.documents?.idProof || '',
-          educationCertificates: nurseDetails.profile.documents?.educationCertificates || '',
-          nursingLicense: nurseDetails.profile.documents?.nursingLicense || '',
-          policeVerification: nurseDetails.profile.documents?.policeVerification || ''
-        }
+          idProof: nurseDetails.profile.documents?.idProof || "",
+          educationCertificates: nurseDetails.profile.documents?.educationCertificates || "",
+          nursingLicense: nurseDetails.profile.documents?.nursingLicense || "",
+          policeVerification: nurseDetails.profile.documents?.policeVerification || "",
+        },
       });
+      // Set skillsInput to display as comma-separated string
+      setSkillsInput(nurseDetails.profile.skills?.join(", ") || "");
     }
   }, [nurseDetails, reset]);
+
+  useEffect(() => {
+    const skills = watch("skills");
+    if (skills && skills.length > 0) {
+      setSkillsInput(skills.join(", "));
+    } else {
+      setSkillsInput("");
+    }
+  }, [watch("skills")]);
+
+  const handleSkillsChange = (e) => {
+    const value = e.target.value;
+    setSkillsInput(value); // Update the textarea display value
+  
+    // Split by commas, trim whitespace, and filter out empty strings
+    const skillsArray = value
+      .split(",")
+      .map(skill => skill.trim())
+      .filter(skill => skill !== "");
+  
+    setValue("skills", skillsArray); // Update form state with array
+  };
+
+  const addSkill = (skill) => {
+    if (skill && skill.trim() !== "") {
+      const currentSkills = watch("skills") || [];
+      if (!currentSkills.includes(skill.trim())) {
+        setValue("skills", [...currentSkills, skill.trim()]);
+      }
+    }
+  };
+  
+  const removeSkill = (skillToRemove) => {
+    const currentSkills = watch("skills") || [];
+    const updatedSkills = currentSkills.filter(skill => skill !== skillToRemove);
+    setValue("skills", updatedSkills);
+  };
 
   const handleSelect = (e) => {
     let selectedLanguage = e.target.value;
@@ -596,9 +665,9 @@ const Profile = ({ getAllData, nurseDetails }) => {
       </div>
     </Col>
 
-    <Col lg="6" md="6">
+    <Col lg="4" md="6">
       <div className="form-wrap">
-        <label className="col-form-label">Hospitals Previously Worked At</label>
+        <label className="col-form-label">Hospital Name</label>
         <Controller
           name="qualifications.hospitalsWorked[0].name"
           control={control}
@@ -613,40 +682,75 @@ const Profile = ({ getAllData, nurseDetails }) => {
       </div>
     </Col>
 
-    <Col lg="6" md="6">
+    <Col lg="4" md="6">
       <div className="form-wrap">
-        <label className="col-form-label">Specializations</label>
+        <label className="col-form-label">Designation at Hospital</label>
         <Controller
-          name="skills"
+          name="qualifications.hospitalsWorked[0].designation"
           control={control}
           render={({ field }) => (
             <input
               {...field}
               className="form-control"
-              placeholder="e.g. Monitoring vitals"
+              placeholder="e.g. Staff Nurse"
             />
           )}
         />
       </div>
     </Col>
 
-    <Col lg="12">
+    <Col lg="4" md="6">
       <div className="form-wrap">
-        <label className="col-form-label">Skills & Services Offered</label>
+        <label className="col-form-label">Duration at Hospital</label>
         <Controller
-          name="qualifications.description"
+          name="qualifications.hospitalsWorked[0].duration"
           control={control}
           render={({ field }) => (
-            <textarea
+            <input
               {...field}
               className="form-control"
-              placeholder="Monitoring vitals, Elderly support, Feeding, bathing, toileting etc."
-              rows="3"
+              placeholder="e.g. 2 years"
             />
           )}
         />
       </div>
     </Col>
+
+    <Col lg="6" md="6">
+      <div className="form-wrap">
+        <label className="col-form-label">Specializations</label>
+        <Controller
+          name="qualifications.description"
+          control={control}
+          render={({ field }) => (
+            <input
+              {...field}
+              className="form-control"
+              placeholder="e.g. Critical care, patient monitoring"
+            />
+          )}
+        />
+      </div>
+    </Col>
+
+    <Col lg="12" md="12">
+  <div className="form-wrap">
+    <label className="col-form-label">Skills & Services Offered</label>
+    <Controller
+      name="skills"
+      control={control}
+      render={({ field }) => (
+        <textarea
+          value={skillsInput}
+          onChange={handleSkillsChange}
+          className="form-control"
+          placeholder="Monitoring vitals, Elderly support, Feeding, Bathing, Toileting etc."
+          rows="3"
+        />
+      )}
+    />
+  </div>
+</Col>
   </Row>
 </div>
 
