@@ -9,6 +9,7 @@ import {
   getDateFormate,
   getIdLastDigits,
 } from "../../helpers/utils";
+
 import drProfileImg from "../../assets/img/dr_profile.jpg";
 
 const Appointments = () => {
@@ -16,6 +17,10 @@ const Appointments = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [activeFilter, setActiveFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  // Add this state at the top of your component
+const [showAmountModal, setShowAmountModal] = useState(false);
+const [newAmount, setNewAmount] = useState("");
+
 
   // New Admission modal state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -83,6 +88,35 @@ const Appointments = () => {
       toast.error("Failed to update admission status");
     }
   };
+
+  // Add this function near your other functions
+// Replace the current function with this corrected version:
+const updateAppointmentAmount = async (appointmentId, newAmount) => {
+  try {
+    // Remove setLoading(true); - you don't have setLoading in scope
+    
+    const response = await callPutApi(`/hospital/appointments/${appointmentId}/amout`, {
+      amount: newAmount
+    });
+    
+    if (response?.success) {
+      toast.success("Amount updated successfully"); // Changed from toastMessage
+      // Update the local state
+      setSelectedAppointment(prev => ({
+        ...prev,
+        amount: newAmount
+      }));
+      // Refresh the appointments list
+      getAllData();
+    } else {
+      throw new Error(response?.message || "Failed to update amount");
+    }
+  } catch (error) {
+    console.error("Error updating amount:", error);
+    toast.error(error.message || "Failed to update amount"); 
+  }
+  // Remove finally block with setLoading
+};
 
   const handleViewDetails = (appointment) => {
     setSelectedAppointment(appointment);
@@ -233,7 +267,7 @@ const Appointments = () => {
                             height="45"
                           />
                           <div>
-                            <h6 className="mb-1">{appointment.patientDetails?.name || "N/A"}</h6>
+                            <h6 className="mb-1">{appointment.patientId?.firstName || "N/A"}</h6>
                             <small className="text-muted">
                               ID: #{getIdLastDigits(appointment._id)}
                             </small>
@@ -386,130 +420,308 @@ const Appointments = () => {
       <Modal 
         show={showDetailModal} 
         onHide={() => setShowDetailModal(false)} 
-        size="lg"
+        size="xl"
         backdrop="static"
       >
         <Modal.Header closeButton>
           <Modal.Title>
             <i className="fas fa-info-circle me-2"></i>
-            Admission Details
+            Admission Details - #{getIdLastDigits(selectedAppointment?._id)}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {selectedAppointment && (
-            <Row>
-              <Col md={6}>
-                <Card className="mb-3">
-                  <Card.Header>
-                    <h6 className="mb-0">Patient Information</h6>
-                  </Card.Header>
-                  <Card.Body>
-                    <div className="d-flex align-items-center mb-3">
-                      <img
-                        src={selectedAppointment.patientDetails?.profileImage || drProfileImg}
-                        alt="Patient"
-                        className="rounded-circle me-3"
-                        width="60"
-                        height="60"
-                      />
-                      <div>
-                        <h5 className="mb-1">{selectedAppointment.patientDetails?.name}</h5>
-                        <p className="text-muted mb-0">
-                          ID: #{getIdLastDigits(selectedAppointment._id)}
-                        </p>
-                      </div>
-                    </div>
-                    <hr />
-                    <div className="row">
-                      <div className="col-6">
-                        <strong>Age:</strong> {selectedAppointment.patientDetails?.age || "N/A"}
-                      </div>
-                      <div className="col-6">
-                        <strong>Gender:</strong> {selectedAppointment.patientDetails?.gender || "N/A"}
-                      </div>
-                      <div className="col-12 mt-2">
-                        <strong>Contact:</strong> {selectedAppointment.patientDetails?.phone || "N/A"}
-                      </div>
-                      <div className="col-12 mt-2">
-                        <strong>Email:</strong> {selectedAppointment.patientDetails?.email || "N/A"}
-                      </div>
-                    </div>
-                  </Card.Body>
-                </Card>
-              </Col>
-              
-              <Col md={6}>
-                <Card className="mb-3">
-                  <Card.Header>
-                    <h6 className="mb-0">Admission Information</h6>
-                  </Card.Header>
-                  <Card.Body>
-                    <div className="row">
-                      <div className="col-12 mb-2">
-                        <strong>Department:</strong>
-                        <Badge bg="light" text="dark" className="ms-2">
-                          {selectedAppointment.department || "General"}
-                        </Badge>
-                      </div>
-                      <div className="col-12 mb-2">
-                        <strong>Service Type:</strong> {selectedAppointment.serviceType || "N/A"}
-                      </div>
-                      <div className="col-6 mb-2">
-                        <strong>Date:</strong> {getDateFormate(selectedAppointment.date)}
-                      </div>
-                      <div className="col-6 mb-2">
-                        <strong>Time:</strong> {selectedAppointment.time || "All Day"}
-                      </div>
-                      <div className="col-6 mb-2">
-                        <strong>Priority:</strong>
-                        <Badge bg={getPriorityBadge(selectedAppointment.priority)} className="ms-2">
-                          {selectedAppointment.priority || "Normal"}
-                        </Badge>
-                      </div>
-                      <div className="col-6 mb-2">
-                        <strong>Status:</strong>
-                        <Badge bg={getStatusVariant(selectedAppointment.status)} className="ms-2">
-                          {selectedAppointment.status || "Pending"}
-                        </Badge>
-                      </div>
-                    </div>
-                    
-                    {selectedAppointment.symptoms && (
-                      <div className="mt-3">
-                        <strong>Symptoms/Notes:</strong>
-                        <p className="mt-1 text-muted">{selectedAppointment.symptoms}</p>
-                      </div>
-                    )}
-                  </Card.Body>
-                </Card>
-              </Col>
-            </Row>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDetailModal(false)}>
-            Close
-          </Button>
-          {selectedAppointment?.status === "Pending" && (
-            <>
-              <Button 
-                variant="success" 
-                onClick={() => updateAppointmentStatus(selectedAppointment._id, "Confirmed")}
-              >
-                <i className="fas fa-check me-1"></i>
-                Confirm Admission
-              </Button>
-              <Button 
-                variant="danger" 
-                onClick={() => updateAppointmentStatus(selectedAppointment._id, "Cancelled")}
-              >
-                <i className="fas fa-times me-1"></i>
-                Cancel
-              </Button>
-            </>
-          )}
-        </Modal.Footer>
+  {selectedAppointment && (
+    <Row>
+      {/* Patient Information */}
+      <Col md={6}>
+        <Card className="mb-3">
+          <Card.Header>
+            <h6 className="mb-0">
+              <i className="fas fa-user me-2"></i>
+              Patient Information
+            </h6>
+          </Card.Header>
+          <Card.Body>
+            <div className="d-flex align-items-center mb-3">
+              <img
+                src={selectedAppointment.patientId?.coverImage || drProfileImg}
+                alt="Patient"
+                className="rounded-circle me-3"
+                width="60"
+                height="60"
+              />
+              <div>
+                <h6 className="mb-0">
+                  {selectedAppointment.patientId?.firstName} {selectedAppointment.patientId?.lastName || ''}
+                </h6>
+                <small className="text-muted">Patient ID: {selectedAppointment.patientId?._id}</small>
+              </div>
+            </div>
+            <hr />
+            <div className="row">
+              <div className="col-6">
+                <strong>Age:</strong> {selectedAppointment.patientId?.age || "N/A"}
+              </div>
+              <div className="col-6">
+                <strong>Gender:</strong> {selectedAppointment.patientId?.gender || "N/A"}
+              </div>
+              <div className="col-12 mt-2">
+                <strong>Contact:</strong> {selectedAppointment.patientId?.phoneNumber || "N/A"}
+              </div>
+              <div className="col-12 mt-2">
+                <strong>Email:</strong> {selectedAppointment.patientId?.email || "N/A"}
+              </div>
+              <div className="col-12 mt-2">
+                <strong>Blood Group:</strong> {selectedAppointment.patientId?.bloodGroup || "N/A"}
+              </div>
+              <div className="col-12 mt-2">
+                <strong>Address:</strong> {selectedAppointment.patientId?.address || "N/A"}
+              </div>
+            </div>
+          </Card.Body>
+        </Card>
+      </Col>
+      
+      <Col md={6}>
+        <Card className="mb-3">
+          <Card.Header>
+            <h6 className="mb-0">
+              <i className="fas fa-calendar-check me-2"></i>
+              Appointment Information
+            </h6>
+          </Card.Header>
+          <Card.Body>
+            <div className="row">
+              <div className="col-12 mb-2">
+                <strong>Department:</strong>
+                <Badge bg="light" text="dark" className="ms-2">
+                  {selectedAppointment.department || "General"}
+                </Badge>
+              </div>
+              <div className="col-12 mb-2">
+                <strong>Service Type:</strong> 
+                <Badge bg="info" className="ms-2">
+                  {selectedAppointment.serviceType || selectedAppointment.appointmentType || "N/A"}
+                </Badge>
+              </div>
+              <div className="col-6 mb-2">
+                <strong>Date:</strong> {selectedAppointment.date ? getDateFormate(selectedAppointment.date) : "N/A"}
+              </div>
+              <div className="col-6 mb-2">
+                <strong>Time:</strong> {selectedAppointment.time || "All Day"}
+              </div>
+              <div className="col-6 mb-2">
+                <strong>Urgency Level:</strong>
+                <Badge bg={getPriorityBadge(selectedAppointment.urgencyLevel)} className="ms-2">
+                  {selectedAppointment.urgencyLevel || "Normal"}
+                </Badge>
+              </div>
+              <div className="col-6 mb-2">
+                <strong>Status:</strong>
+                <Badge bg={getStatusVariant(selectedAppointment.status)} className="ms-2">
+                  {selectedAppointment.status || "Pending"}
+                </Badge>
+              </div>
+              <div className="col-12 mb-2">
+                <strong>Appointment For:</strong> {selectedAppointment.appointmentFor || "Self"}
+              </div>
+              <div className="col-12 mb-2">
+                <strong>Preferred Doctor:</strong> {selectedAppointment.preferredDoctor || "No Preference"}
+              </div>
+            </div>
+            
+            {selectedAppointment.reason && (
+              <div className="mt-3">
+                <strong>Reason for Visit:</strong>
+                <p className="mt-1 text-muted">{selectedAppointment.reason}</p>
+              </div>
+            )}
+
+            {selectedAppointment.symptoms && (
+              <div className="mt-3">
+                <strong>Symptoms/Notes:</strong>
+                <p className="mt-1 text-muted">{selectedAppointment.symptoms}</p>
+              </div>
+            )}
+
+            {selectedAppointment.medicalCondition && (
+              <div className="mt-3">
+                <strong>Medical Condition:</strong>
+                <p className="mt-1 text-muted">{selectedAppointment.medicalCondition}</p>
+              </div>
+            )}
+          </Card.Body>
+        </Card>
+      </Col>
+
+      {/* Additional Information */}
+      <Col md={12}>
+        <Card className="mb-3">
+          <Card.Header>
+            <h6 className="mb-0">
+              <i className="fas fa-info-circle me-2"></i>
+              Additional Details
+            </h6>
+          </Card.Header>
+          <Card.Body>
+            <div className="row">
+              <div className="col-md-4 mb-2">
+                <strong>Booking Type:</strong> 
+                <Badge bg="secondary" className="ms-2">
+                  {selectedAppointment.bookingType || "Single"}
+                </Badge>
+              </div>
+              <div className="col-md-4 mb-2">
+                <strong>Duration:</strong> {selectedAppointment.duration || 1} day(s)
+              </div>
+              <div className="col-md-4 mb-2">
+                <strong>Priority Booking:</strong> 
+                {selectedAppointment.priorityBooking ? (
+                  <Badge bg="warning" className="ms-2">Yes</Badge>
+                ) : (
+                  <Badge bg="light" text="dark" className="ms-2">No</Badge>
+                )}
+              </div>
+              <div className="col-md-4 mb-2">
+                <strong>Insurance:</strong> 
+                {selectedAppointment.isInsurance ? (
+                  <Badge bg="success" className="ms-2">Covered</Badge>
+                ) : (
+                  <Badge bg="light" text="dark" className="ms-2">Not Covered</Badge>
+                )}
+              </div>
+              <div className="col-md-4 mb-2">
+                <strong>Payment Status:</strong> 
+                <Badge bg={selectedAppointment.paymentDetails?.paymentStatus === 'completed' ? 'success' : 'warning'} className="ms-2">
+                  {selectedAppointment.paymentDetails?.paymentStatus || "Pending"}
+                </Badge>
+              </div>
+              <div className="col-md-4 mb-2">
+                <strong>Amount:</strong> ₹{selectedAppointment.amount || "0"}
+              </div>
+            </div>
+
+            {selectedAppointment.emergencyContact && (
+              <div className="mt-3">
+                <strong>Emergency Contact:</strong>
+                <p className="mt-1 text-muted">{selectedAppointment.emergencyContact}</p>
+              </div>
+            )}
+
+            {selectedAppointment.comments && (
+              <div className="mt-3">
+                <strong>Additional Comments:</strong>
+                <p className="mt-1 text-muted">{selectedAppointment.comments}</p>
+              </div>
+            )}
+
+            {selectedAppointment.attachment && (
+              <div className="mt-3">
+                <strong>Attachment:</strong>
+                <a href={selectedAppointment.attachment} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary ms-2">
+                  <i className="fas fa-paperclip me-1"></i>
+                  View Attachment
+                </a>
+              </div>
+            )}
+          </Card.Body>
+        </Card>
+      </Col>
+    </Row>
+  )}
+</Modal.Body>
+<Modal.Footer>
+  <Button variant="secondary" onClick={() => setShowDetailModal(false)}>
+    Close
+  </Button>
+  
+  <Button 
+    variant="warning" 
+    onClick={() => {
+      setNewAmount(selectedAppointment?.amount || "0");
+      setShowAmountModal(true);
+    }}
+  >
+    <i className="fas fa-rupee-sign me-1"></i>
+    Update Amount
+  </Button>
+
+  {selectedAppointment?.status === "Pending" && (
+    <>
+      <Button 
+        variant="success" 
+        onClick={() => updateAppointmentStatus(selectedAppointment._id, "Confirmed")}
+      >
+        <i className="fas fa-check me-1"></i>
+        Confirm Admission
+      </Button>
+      <Button 
+        variant="danger" 
+        onClick={() => updateAppointmentStatus(selectedAppointment._id, "Cancelled")}
+      >
+        <i className="fas fa-times me-1"></i>
+        Cancel
+      </Button>
+    </>
+  )}
+  
+  {selectedAppointment?.status === "Confirmed" && (
+    <Button 
+      variant="primary" 
+      onClick={() => updateAppointmentStatus(selectedAppointment._id, "In Progress")}
+    >
+      <i className="fas fa-play me-1"></i>
+      Start Treatment
+    </Button>
+  )}
+  
+  {selectedAppointment?.status === "In Progress" && (
+    <Button 
+      variant="success" 
+      onClick={() => updateAppointmentStatus(selectedAppointment._id, "Completed")}
+    >
+      <i className="fas fa-check-circle me-1"></i>
+      Mark Complete
+    </Button>
+  )}
+</Modal.Footer>
       </Modal>
+
+      {/* Amount Update Modal */}
+<Modal show={showAmountModal} onHide={() => setShowAmountModal(false)} centered>
+  <Modal.Header closeButton>
+    <Modal.Title>Update Amount</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    <Form.Group>
+      <Form.Label>Enter New Amount (₹)</Form.Label>
+      <Form.Control
+        type="number"
+        value={newAmount}
+        onChange={(e) => setNewAmount(e.target.value)}
+        placeholder="Enter amount"
+        min="0"
+        step="0.01"
+      />
+    </Form.Group>
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={() => setShowAmountModal(false)}>
+      Cancel
+    </Button>
+    <Button 
+      variant="primary" 
+      onClick={() => {
+        if (newAmount && !isNaN(newAmount)) {
+          updateAppointmentAmount(selectedAppointment._id, parseFloat(newAmount));
+          setShowAmountModal(false);
+        }
+      }}
+    >
+      Update Amount
+    </Button>
+  </Modal.Footer>
+</Modal>
 
       {/* Add Admission Modal */}
       <Modal show={showAddModal} onHide={() => setShowAddModal(false)} backdrop="static" size="lg">

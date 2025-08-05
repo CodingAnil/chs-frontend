@@ -1,0 +1,168 @@
+.service-request-modal .card {
+  border: 1px solid rgba(0,0,0,0.1);
+  box-shadow: none;
+}
+
+.service-request-modal label.text-muted {
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.avatar-sm {
+  width: 40px;
+  height: 40px;
+}
+
+.table > :not(caption) > * > * {
+  padding: 1rem 0.75rem;
+}
+
+.badge {
+  padding: 0.5em 0.75em;
+  font-weight: 500;
+}
+
+.service-dashboard {
+  padding: 1.5rem;
+}
+
+.dashboard-header {
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-header h3 {
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.service-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.service-card .card-header {
+  background: #f8f9fa;
+  border-bottom: 1px solid #edf2f7;
+  padding: 1rem 1.5rem;
+}
+
+.filter-buttons .btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.table-container {
+  padding: 1.5rem;
+}
+
+.service-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.service-table thead th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #2d3748;
+  padding: 1rem;
+  font-size: 0.875rem;
+}
+
+.service-table tbody td {
+  padding: 1rem;
+  vertical-align: middle;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.status-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.patient-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.patient-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+/* Modal Styles */
+.service-modal {
+  border-radius: 12px;
+}
+
+.service-modal .modal-header {
+  background: #f8f9fa;
+  border-bottom: 1px solid #edf2f7;
+  padding: 1rem 1.5rem;
+}
+
+.service-modal .modal-body {
+  padding: 1.5rem;
+}
+
+.detail-card {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 1.25rem;
+  height: 100%;
+}
+
+.detail-card h6 {
+  color: #2d3748;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.detail-item {
+  margin-bottom: 1rem;
+}
+
+.detail-item label {
+  color: #718096;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+
+.detail-item p {
+  margin: 0;
+  color: #2d3748;
+  font-weight: 500;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.action-button {
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: none;
+  background: #f8f9fa;
+  color: #4a5568;
+  transition: all 0.2s;
+}
+
+.action-button:hover {
+  background: #edf2f7;
+}

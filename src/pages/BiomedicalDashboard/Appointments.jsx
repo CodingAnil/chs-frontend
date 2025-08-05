@@ -16,6 +16,9 @@ const Appointments = ({ biomedicalDetails }) => {
   const [statusUpdate, setStatusUpdate] = useState("");
   const [serviceNotes, setServiceNotes] = useState("");
   const [estimatedCost, setEstimatedCost] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const ITEMS_PER_PAGE = 5;
 
   const userProfileId = getLocalStorage(STORAGE.USER_KEY)?.profile?._id;
 
@@ -32,7 +35,14 @@ const Appointments = ({ biomedicalDetails }) => {
     if (filter === "all") {
       setQuery((pre) => ({ ...pre, status: undefined }));
     } else {
-      setQuery((pre) => ({ ...pre, status: filter }));
+      // Convert filter to match the API status format
+      const statusMap = {
+        'pending': 'Pending',
+        'confirmed': 'Accepted',
+        'completed': 'Completed',
+        'cancelled': 'Cancelled'
+      };
+      setQuery((pre) => ({ ...pre, status: statusMap[filter] }));
     }
   };
 
@@ -53,8 +63,24 @@ const Appointments = ({ biomedicalDetails }) => {
 
   const handleStatusUpdate = async (appointmentId, newStatus) => {
     try {
-      const response = await putDataAPI(`/biomedical/appointments/${appointmentId}/status`, {
-        status: newStatus,
+      // Don't allow completion if payment is pending
+      if (newStatus.toLowerCase() === 'completed') {
+        const appointment = appointments.find(app => app._id === appointmentId);
+        if (!appointment.isPaid && appointment.paymentStatus !== 'Completed') {
+          toastMessage("error", "Cannot complete service before payment is done");
+          return;
+        }
+      }
+
+      const statusMap = {
+        'confirmed': 'Accepted',
+        'completed': 'Completed',
+        'cancelled': 'Cancelled',
+        'pending': 'Pending'
+      };
+
+      const response = await putDataAPI(`/biomedical/appointments/${appointmentId}`, {
+        status: statusMap[newStatus] || newStatus
       });
       
       if (response.success) {
@@ -75,12 +101,13 @@ const Appointments = ({ biomedicalDetails }) => {
       const updateData = {
         serviceNotes,
         estimatedCost: parseFloat(estimatedCost) || 0,
+        isPaid: false, // Reset payment status when cost is updated
       };
 
       const response = await putDataAPI(`/biomedical/appointments/${selectedAppointment._id}`, updateData);
       
       if (response.success) {
-        toastMessage("success", "Service details updated successfully");
+        toastMessage("success", "Service details and cost updated successfully");
         getAllData();
         handleModelClose();
       } else {
@@ -131,42 +158,81 @@ const Appointments = ({ biomedicalDetails }) => {
     }
   };
 
+  const getUrgencyBadgeClass = (urgency) => {
+    switch (urgency?.toLowerCase()) {
+      case "high":
+        return "badge-danger";
+      case "medium":
+        return "badge-warning";
+      case "low":
+        return "badge-info";
+      default:
+        return "badge-secondary";
+    }
+  };
+
+  // Add pagination and search filter
+  const filteredAppointments = appointments?.filter((appointment) => {
+    const matchesSearch = (
+      appointment.patientId?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      appointment._id?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    const matchesTab = tab === "all" || 
+      appointment.status?.toLowerCase() === (tab === "confirmed" ? "accepted" : tab).toLowerCase();
+    return matchesSearch && matchesTab;
+  }) || [];
+
+  const paginatedAppointments = filteredAppointments.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   return (
-    <>
+    <div className="service-dashboard">
       <div className="dashboard-header">
-        <h3>Service Requests</h3>
+        <h3>Biomedical Service Requests</h3>
+        
+        {/* Add Search Input */}
+        <div className="search-container mb-3">
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Search by email or service ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <h4 className="card-title">Biomedical Service Requests</h4>
-          <div className="card-header-btns">
+      <div className="service-card">
+        <div className="card-header d-flex justify-content-between align-items-center">
+          <div className="filter-buttons">
             <Button
-              className={`btn btn-sm me-2 ${tab === "all" ? "btn-primary" : "btn-outline-primary"}`}
+              className={`me-2 ${tab === "all" ? "btn-primary" : "btn-light"}`}
               onClick={() => getByFilter("all")}
             >
-              All
+              All Requests
             </Button>
             <Button
-              className={`btn btn-sm me-2 ${tab === "pending" ? "btn-warning" : "btn-outline-warning"}`}
+              className={`me-2 ${tab === "pending" ? "btn-warning" : "btn-light"}`}
               onClick={() => getByFilter("pending")}
             >
               Pending
             </Button>
             <Button
-              className={`btn btn-sm me-2 ${tab === "confirmed" ? "btn-primary" : "btn-outline-primary"}`}
+              className={`me-2 ${tab === "confirmed" ? "btn-primary" : "btn-light"}`}
               onClick={() => getByFilter("confirmed")}
             >
               Confirmed
             </Button>
             <Button
-              className={`btn btn-sm me-2 ${tab === "completed" ? "btn-success" : "btn-outline-success"}`}
+              className={`me-2 ${tab === "completed" ? "btn-success" : "btn-light"}`}
               onClick={() => getByFilter("completed")}
             >
               Completed
             </Button>
             <Button
-              className={`btn btn-sm ${tab === "cancelled" ? "btn-danger" : "btn-outline-danger"}`}
+              className={`${tab === "cancelled" ? "btn-danger" : "btn-light"}`}
               onClick={() => getByFilter("cancelled")}
             >
               Cancelled
@@ -174,137 +240,159 @@ const Appointments = ({ biomedicalDetails }) => {
           </div>
         </div>
 
-        <div className="card-body">
+        <div className="table-container mt-4">
           {loading ? (
-            <div className="text-center">
-              <div className="spinner-border" role="status">
+            <div className="text-center p-5">
+              <div className="spinner-border text-primary" role="status">
                 <span className="visually-hidden">Loading...</span>
               </div>
             </div>
-          ) : appointments && appointments.length > 0 ? (
-            <div className="table-responsive">
-              <table className="table table-hover">
-                <thead>
-                  <tr>
-                    <th>Service ID</th>
-                    <th>Patient</th>
-                    <th>Service Type</th>
-                    <th>Equipment</th>
-                    <th>Date & Time</th>
-                    <th>Status</th>
-                    <th>Priority</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {appointments.map((appointment, index) => (
-                    <tr key={index}>
-                      <td>
-                        <span className="text-blue">
-                          #{getIdLastDigits(appointment._id, "BM-")}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="d-flex align-items-center">
-                          <img
-                            src={appointment.patientId?.coverImage || biomedical_img}
-                            alt="Patient"
-                            className="avatar-sm rounded-circle me-2"
-                          />
-                          <div>
-                            <p className="mb-0">
-                              {formatName(appointment.patientId?.firstName, appointment.patientId?.lastName)}
-                            </p>
-                            <small className="text-muted">
-                              {appointment.patientId?.email}
+          ) : appointments?.length > 0 ? (
+            <div className="card">
+              <div className="table-responsive">
+                <table className="table table-hover align-middle mb-0">
+                  <thead className="bg-light">
+                    <tr>
+                      <th style={{ minWidth: "100px" }}>Service ID</th>
+                      <th style={{ minWidth: "200px" }}>Patient</th>
+                      <th style={{ minWidth: "180px" }}>Equipment</th>
+                      <th style={{ minWidth: "140px" }}>Service Type</th>
+                      <th style={{ minWidth: "160px" }}>Date & Time</th>
+                      <th style={{ minWidth: "100px" }}>Priority</th>
+                      <th style={{ minWidth: "100px" }}>Status</th>
+                      <th style={{ minWidth: "120px" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedAppointments.map((appointment) => (
+                      <tr key={appointment._id} className="border-bottom">
+                        <td>
+                          <div className="fw-semibold text-primary">
+                            #{getIdLastDigits(appointment._id, "SR-")}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="d-flex align-items-center gap-2">
+                            <div className="patient-avatar rounded-circle bg-light text-primary d-flex align-items-center justify-content-center" 
+                                 style={{ width: "40px", height: "40px", fontSize: "18px" }}>
+                              {appointment.patientId?.firstName?.[0] || "U"}
+                            </div>
+                            <div>
+                              <div className="fw-semibold mb-1">{appointment.patientId?.firstName}</div>
+                              <small className="text-muted">{appointment.patientId?.email}</small>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="d-flex flex-column">
+                            <span className="fw-semibold mb-1">{appointment.equipmentType || "N/A"}</span>
+                            <small className="text-muted text-truncate" style={{ maxWidth: "150px" }}>
+                              {appointment.issueDescription || "No description"}
                             </small>
                           </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="d-flex align-items-center">
-                          <i className={`fa-solid ${getServiceTypeIcon(appointment.serviceType)} me-2`}></i>
-                          <span className="badge badge-soft-info">
-                            {appointment.serviceType || "Equipment Service"}
+                        </td>
+                        <td>
+                          <div className="d-flex align-items-center">
+                            <i className={`fa-solid ${getServiceTypeIcon(appointment.preferredServiceType)} me-2`}></i>
+                            <span className="badge bg-info-subtle text-info">
+                              {appointment.preferredServiceType || "N/A"}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="d-flex flex-column">
+                            <span className="fw-semibold">{getDateFormate(appointment.date)}</span>
+                            <small className="text-muted">{appointment.time || "N/A"}</small>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`badge ${getUrgencyBadgeClass(appointment.urgencyLevel)} rounded-pill`}>
+                            {appointment.urgencyLevel || "Normal"}
                           </span>
-                        </div>
-                      </td>
-                      <td>
-                        <div>
-                          <p className="mb-0">{appointment.patientDetails?.equipmentType || "N/A"}</p>
-                          <small className="text-muted">
-                            {appointment.patientDetails?.equipmentModel || ""}
-                          </small>
-                        </div>
-                      </td>
-                      <td>
-                        <div>
-                          <p className="mb-0">{getDateFormate(appointment.appointmentDate)}</p>
-                          <small className="text-muted">
-                            {appointment.appointmentTime || "N/A"}
-                          </small>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`badge ${getStatusBadgeClass(appointment.status)}`}>
-                          {appointment.status}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`badge ${
-                          appointment.priority === "emergency" ? "badge-danger" :
-                          appointment.priority === "urgent" ? "badge-warning" :
-                          "badge-info"
-                        }`}>
-                          {appointment.priority || "normal"}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="action-item">
-                          <button
-                            className="btn btn-sm btn-outline-primary me-1"
-                            onClick={() => handleModelShow(appointment)}
-                            title="View Details"
-                          >
-                            <i className="fa-solid fa-eye"></i>
-                          </button>
-                          {appointment.status === "pending" && (
-                            <>
-                              <button
-                                className="btn btn-sm btn-outline-success me-1"
-                                onClick={() => handleStatusUpdate(appointment._id, "confirmed")}
-                                title="Confirm"
-                              >
-                                <i className="fa-solid fa-check"></i>
-                              </button>
-                              <button
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={() => handleStatusUpdate(appointment._id, "cancelled")}
-                                title="Cancel"
-                              >
-                                <i className="fa-solid fa-times"></i>
-                              </button>
-                            </>
-                          )}
-                          {appointment.status === "confirmed" && (
+                        </td>
+                        <td>
+                          <span className={`badge ${getStatusBadgeClass(appointment.status)} rounded-pill`}>
+                            {appointment.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="d-flex gap-1">
                             <button
-                              className="btn btn-sm btn-outline-success"
-                              onClick={() => handleStatusUpdate(appointment._id, "completed")}
-                              title="Mark Complete"
+                              className="btn btn-sm btn-light"
+                              onClick={() => handleModelShow(appointment)}
+                              title="View Details"
                             >
-                              <i className="fa-solid fa-check-double"></i>
+                              <i className="fa-solid fa-eye"></i>
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                            {appointment.status === "Pending" && (
+                              <>
+                                <button
+                                  className="btn btn-sm btn-success"
+                                  onClick={() => handleStatusUpdate(appointment._id, "confirmed")}
+                                  title="Accept Request"
+                                >
+                                  <i className="fa-solid fa-check"></i>
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-danger"
+                                  onClick={() => handleStatusUpdate(appointment._id, "cancelled")}
+                                  title="Cancel Request"
+                                >
+                                  <i className="fa-solid fa-times"></i>
+                                </button>
+                              </>
+                            )}
+                            {appointment.status === "Accepted" && (
+                              <>
+                                <button
+                                  className="btn btn-sm btn-success"
+                                  onClick={() => handleStatusUpdate(appointment._id, "completed")}
+                                  disabled={!appointment.isPaid && appointment.paymentStatus !== 'Completed'}
+                                  title={!appointment.isPaid ? "Cannot complete before payment" : "Mark as completed"}
+                                >
+                                  <i className="fa-solid fa-check-double"></i>
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-primary"
+                                  onClick={() => handleModelShow(appointment)}
+                                  title="Update Cost"
+                                >
+                                  <i className="fa-solid fa-dollar-sign"></i>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : (
             <NotFound message="No service requests found" />
           )}
+        </div>
+
+        {/* Add Pagination */}
+        <div className="pagination-container mt-3 d-flex justify-content-center">
+          <Button
+            variant="light"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(prev => prev - 1)}
+          >
+            Previous
+          </Button>
+          <span className="mx-3">
+            Page {currentPage} of {Math.ceil(filteredAppointments.length / ITEMS_PER_PAGE)}
+          </span>
+          <Button
+            variant="light"
+            disabled={currentPage >= Math.ceil(filteredAppointments.length / ITEMS_PER_PAGE)}
+            onClick={() => setCurrentPage(prev => prev + 1)}
+          >
+            Next
+          </Button>
         </div>
       </div>
 
@@ -315,6 +403,7 @@ const Appointments = ({ biomedicalDetails }) => {
         backdrop="static"
         keyboard={false}
         size="lg"
+        className="service-modal"
       >
         <Modal.Header closeButton>
           <Modal.Title>Service Request Details</Modal.Title>
@@ -438,6 +527,18 @@ const Appointments = ({ biomedicalDetails }) => {
                   />
                 </Form.Group>
               </div>
+
+              <div className="detail-section">
+                <h6>Payment Information</h6>
+                <div className="detail-item">
+                  <label>Payment Status:</label>
+                  <p>
+                    <span className={`badge ${selectedAppointment.isPaid || selectedAppointment.paymentStatus === 'Completed' ? 'badge-success' : 'badge-danger'}`}>
+                      {selectedAppointment.isPaid || selectedAppointment.paymentStatus === 'Completed' ? 'Paid' : 'Pending'}
+                    </span>
+                  </p>
+                </div>
+              </div>
             </div>
           )}
         </Modal.Body>
@@ -450,8 +551,8 @@ const Appointments = ({ biomedicalDetails }) => {
           </Button>
         </Modal.Footer>
       </Modal>
-    </>
+    </div>
   );
 };
 
-export default Appointments; 
+export default Appointments;

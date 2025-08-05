@@ -144,7 +144,60 @@ export default function BookingSuccess() {
     }
   };
 
-  const professionalData = type === "nurse" 
+  const getBiomedicalDetails = (data) => {
+    if (!data) return null;
+
+    return {
+      serviceInfo: [
+        {
+          icon: 'fa-cog',
+          label: 'Service Type',
+          value: data?.appointmentType || 'Maintenance & Repair'
+        },
+        {
+          icon: 'fa-wrench',
+          label: 'Equipment Type',
+          value: data?.equipmentType || 'Medical Equipment'
+        },
+        {
+          icon: 'fa-exclamation-triangle',
+          label: 'Urgency Level',
+          value: data?.urgencyLevel || 'Normal'
+        },
+        {
+          icon: 'fa-tools',
+          label: 'Service Category',
+          value: data?.serviceCategory || 'Technical Service'
+        },
+        {
+          icon: 'fa-file-alt',
+          label: 'Issue Description',
+          value: data?.issueDescription || 'Not specified'
+        }
+      ],
+      engineerInfo: [
+        {
+          icon: 'fa-user-cog',
+          label: 'Engineer Name',
+          value: `${data?.refBiomedical?.firstName || ''} ${data?.refBiomedical?.lastName || ''}`
+        },
+        {
+          icon: 'fa-certificate',
+          label: 'Specialization',
+          value: data?.refBiomedical?.specialization || 'Biomedical Engineering'
+        },
+        {
+          icon: 'fa-clock',
+          label: 'Experience',
+          value: data?.refBiomedical?.experience ? `${data?.refBiomedical?.experience} years` : 'Experienced'
+        }
+      ]
+    };
+  };
+
+  const professionalData = type === "hospital" 
+    ? data?.hospital || data?.refHospital
+    : type === "nurse" 
     ? (data?.refNurse || data?.nurse)
     : type === "pathology"
     ? (data?.refPathology || data?.pathology)
@@ -152,8 +205,6 @@ export default function BookingSuccess() {
     ? (data?.refAmbulance || data?.ambulance)
     : type === "biomedical"
     ? (data?.refBiomedical || data?.biomedical)
-    : type === "hospital"
-    ? (data?.refHospital || data?.hospital)
     : (data?.refDoctor || data?.doctor);
 
   const professionalTitle = type === "nurse" 
@@ -230,6 +281,22 @@ export default function BookingSuccess() {
         return (
           <div className="professional-avatar-icon">
             <User size={40} color="#17a2b8" />
+          </div>
+        );
+      }
+    } else if (type === "hospital") {
+      if (professionalData?.coverImage) {
+        return (
+          <img 
+            src={professionalData.coverImage} 
+            alt={professionalData?.name || "Hospital"}
+            className="professional-avatar"
+          />
+        );
+      } else {
+        return (
+          <div className="professional-avatar-icon">
+            <Home size={40} color="#4e73df" />
           </div>
         );
       }
@@ -387,6 +454,35 @@ export default function BookingSuccess() {
         .back-home a:hover {
           color: #4e73df;
         }
+        .biomedical-service-details,
+        .engineer-details {
+          background: #f8f9fa;
+          padding: 20px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+          border-left: 4px solid #0d6efd;
+        }
+        .section-title {
+          color: #0d6efd;
+          margin-bottom: 15px;
+          font-size: 1.1rem;
+        }
+        .detail-row {
+          display: flex;
+          align-items: center;
+          margin-bottom: 10px;
+          padding: 8px;
+          background: white;
+          border-radius: 6px;
+        }
+        .detail-label {
+          font-weight: 600;
+          margin-right: 10px;
+          color: #495057;
+        }
+        .detail-value {
+          color: #212529;
+        }
       `}</style>
       <Header />
       <Breadcrumb />
@@ -408,8 +504,10 @@ export default function BookingSuccess() {
                   <div className="success-icon mb-3">
                     <CheckCircle size={48} />
                   </div>
-                  <h3>Booking Confirmed!</h3>
-                  <p>Your {type === "nurse" ? "nursing care" : type === "pathology" ? "lab test" : type === "ambulance" ? "ambulance service" : "appointment"} request has been submitted successfully</p>
+                  <h3>{type === "biomedical" ? "Service Request Confirmed!" : "Booking Confirmed!"}</h3>
+                  <p>{type === "biomedical" 
+                    ? "Your biomedical service request has been submitted successfully" 
+                    : "Your appointment request has been submitted successfully"}</p>
                 </div>
 
                 <div className="receipt-body">
@@ -422,6 +520,38 @@ export default function BookingSuccess() {
                     </div>
                   </div>
 
+                  {type === "biomedical" && (
+                    <>
+                      <div className="biomedical-service-details">
+                        <h5 className="section-title">
+                          <i className="fas fa-tools me-2"></i>
+                          Service Details
+                        </h5>
+                        {getBiomedicalDetails(data)?.serviceInfo.map((item, index) => (
+                          <div key={index} className="detail-row">
+                            <i className={`fas ${item.icon} text-primary me-2`}></i>
+                            <span className="detail-label">{item.label}:</span>
+                            <span className="detail-value">{item.value}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="engineer-details mt-4">
+                        <h5 className="section-title">
+                          <i className="fas fa-user-cog me-2"></i>
+                          Engineer Information
+                        </h5>
+                        {getBiomedicalDetails(data)?.engineerInfo.map((item, index) => (
+                          <div key={index} className="detail-row">
+                            <i className={`fas ${item.icon} text-primary me-2`}></i>
+                            <span className="detail-label">{item.label}:</span>
+                            <span className="detail-value">{item.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
                   <div className="professional-info">
                     {renderProfessionalImage()}
                     <div className="professional-details">
@@ -430,19 +560,23 @@ export default function BookingSuccess() {
                           ? professionalData?.labName || `${professionalData?.firstName} ${professionalData?.lastName}` 
                           : type === "ambulance"
                           ? professionalData?.displayName || `${professionalData?.firstName} ${professionalData?.lastName}`
+                          : type === "hospital"
+                          ? professionalData?.hospitalName || professionalData?.name || "Hospital"
                           : `${professionalTitle} ${professionalData?.firstName} ${professionalData?.lastName}`
                         }
                       </h4>
-                      {professionalData?.achievement && (
+                      {professionalData?.achievement && type !== "hospital" && (
                         <p><strong>Qualification:</strong> {professionalData?.achievement}</p>
                       )}
-                      {type === "ambulance" ? (
+                      {type === "hospital" ? (
                         <>
-                          {professionalData?.vehicleNumber && (
-                            <p><strong>Vehicle Number:</strong> {professionalData?.vehicleNumber}</p>
+                          {professionalData?.type && (
+                            <p><strong>Hospital Type:</strong> {professionalData?.type}</p>
                           )}
-                          {professionalData?.ambulanceType && (
-                            <p><strong>Ambulance Type:</strong> {professionalData?.ambulanceType}</p>
+                          {professionalData?.specialties && (
+                            <p><strong>Specialties:</strong> {Array.isArray(professionalData?.specialties) 
+                              ? professionalData?.specialties.join(', ') 
+                              : professionalData?.specialties}</p>
                           )}
                         </>
                       ) : (

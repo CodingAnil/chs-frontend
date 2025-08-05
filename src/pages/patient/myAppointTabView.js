@@ -33,6 +33,19 @@ function getProviderName(ap) {
       ap.refPathology.labName ||
       `${ap.refPathology.firstName || ""} ${ap.refPathology.lastName || ""}`.trim()
     );
+  if (ap.refBiomedical)
+    return (
+      ap.refBiomedical.displayName ||
+      `${ap.refBiomedical.firstName || ""} ${ap.refBiomedical.lastName || ""}`.trim() ||
+      "Biomedical Engineer"
+    );
+  if (ap.refHospital)
+    return (
+      ap.refHospital.hospitalName ||
+      ap.refHospital.displayName ||
+      `${ap.refHospital.firstName || ""} ${ap.refHospital.lastName || ""}`.trim() ||
+      "Hospital"
+    );
   return "Unknown Provider";
 }
 
@@ -65,6 +78,7 @@ function renderProviderVisual(ap) {
     ap.refDoctor?.coverImage ||
     ap.refNurse?.coverImage ||
     ap.refPathology?.coverImage ||
+    ap.refHospital?.coverImage ||
     user_img;
   return (
     <img
@@ -89,21 +103,28 @@ function getAmbulanceDetails(ap) {
 function getPaymentDetails(ap, showLabel = true) {
   const paid =
     ap.isPaid === true ||
-    ap.paymentStatus === "Completed" ||
-    ap.paymentStatus === "Paid";
+    ap.paymentStatus?.toLowerCase() === "completed" ||
+    ap.paymentStatus?.toLowerCase() === "paid";
 
-    debugger;
+  let amount = 0;
+  if (ap.refAmbulance) {
+    amount = ap.calculatedFare || 0;
+  } else if (ap.refNurse || ap.refPathology) {
+    amount = ap.amount || 0;
+  } else if (ap.refBiomedical) {
+    amount = ap.estimatedCost || 0;
+  } else if (ap.refHospital) {
+    amount = ap.amount || 0;
+  }
 
-
-if(ap.refAmbulance != null){
-  if (ap.calculatedFare > 0 || ap.kilometersDriven > 0) {
+  if (amount > 0) {
     return (
       <div>
-        {showLabel && <b>Fare:</b>} ₹{ap.calculatedFare?.toFixed(2) || "0.00"}{" "}
+        {showLabel && <b>Amount:</b>} ₹{amount?.toFixed(2) || "0.00"}{" "}
         <span style={{ color: paid ? "green" : "red", fontWeight: 600 }}>
           {paid ? "Paid" : "Pending"}
         </span>
-        {ap.kilometersDriven > 0 && (
+        {ap.refAmbulance && ap.kilometersDriven > 0 && (
           <>
             {(showLabel ? <><br /></> : " ")}
             <span style={{ fontSize: 13, color: "#888" }}>
@@ -114,36 +135,14 @@ if(ap.refAmbulance != null){
       </div>
     );
   }
-  if (!paid && ap.calculatedFare === 0 && ap.status === "Completed") {
-    // Mark pending if completed but never paid
+
+  if (!paid && ap.status === "Completed") {
     return (
       <span style={{ color: "red", fontWeight: 600 }}>
         Pending Payment
       </span>
     );
   }
-}
-if(ap.refNurse != null){
-  if (ap.amount > 0) {
-    return (
-      <div>
-        {showLabel && <b>Fare:</b>} ₹{ap.amount?.toFixed(2) || "0.00"}{" "}
-        <span style={{ color: paid ? "green" : "red", fontWeight: 600 }}>
-          {paid ? "Paid" : "Pending"}
-        </span>
-        
-      </div>
-    );
-  }
-  if (paid) {
-    // Mark pending if completed but never paid
-    return (
-      <span style={{ color: "red", fontWeight: 600 }}>
-        Pending Payment
-      </span>
-    );
-  }
-}
 
   return null;
 }
@@ -184,17 +183,18 @@ const MyAppointTabView = ({ appointmentData }) => {
 
   const isUpcoming = (ap) => {
     if (!ap || !ap.status) return false;
-    return ["Pending", "Accepted", "InProgress"].includes(ap.status);
+    const status = ap.status.toLowerCase().replace(/\s+/g, '');
+    return ["pending", "accepted", "inprogress","confirmed"].includes(status);
   };
 
   const isCancel = (ap) => {
     if (!ap || !ap.status) return false;
-    return ap.status === "Cancelled";
+    return ap.status.toLowerCase() === "cancelled";
   };
 
   const isComplete = (ap) => {
     if (!ap || !ap.status) return false;
-    return ap.status === "Completed";
+    return ap.status.toLowerCase() === "completed";
   };
 
   const sortAppointments = (appointments) => {
@@ -244,77 +244,94 @@ const MyAppointTabView = ({ appointmentData }) => {
   };
 
   // List card content
-  const renderAppointmentRow = (ap, canCancel = false) => (
-    <div
-      key={ap._id}
-      className="appointment-wrap my-2 p-3 rounded shadow-sm bg-white d-flex flex-wrap align-items-center justify-content-between"
-      style={{ minHeight: 75, border: "1px solid #ececec" }}
-    >
-      <div className="d-flex align-items-center flex-grow-1">
-        {renderProviderVisual(ap)}
-        <div className="ms-3">
-          <div className="fw-bold" style={{ fontSize: 16 }}>
-            {getProviderName(ap)}
+  const renderAppointmentRow = (ap, canCancel = false) => {
+    const paid =
+      ap.isPaid === true ||
+      ap.paymentStatus?.toLowerCase() === "completed" ||
+      ap.paymentStatus?.toLowerCase() === "paid";
+
+    // Check if there's any payment amount
+    let hasPaymentAmount = false;
+    if (ap.refAmbulance && (ap.calculatedFare > 0)) {
+      hasPaymentAmount = true;
+    } else if ((ap.refNurse || ap.refPathology) && (ap.amount > 0)) {
+      hasPaymentAmount = true;
+    } else if (ap.refBiomedical && (ap.estimatedCost > 0)) {
+      hasPaymentAmount = true;
+    } else if (ap.refHospital && (ap.amount > 0)) {
+      hasPaymentAmount = true;
+    }
+    debugger;
+
+    return (
+      <div
+        key={ap._id}
+        className="appointment-wrap my-2 p-3 rounded shadow-sm bg-white d-flex flex-wrap align-items-center justify-content-between"
+        style={{ minHeight: 75, border: "1px solid #ececec" }}
+      >
+        <div className="d-flex align-items-center flex-grow-1">
+          {renderProviderVisual(ap)}
+          <div className="ms-3">
+            <div className="fw-bold" style={{ fontSize: 16 }}>
+              {getProviderName(ap)}
+            </div>
+            <div className="text-muted" style={{ fontSize: 13 }}>
+              #{getIdLastDigits(ap._id, "AP")}
+              <br />
+              <span className="badge bg-info me-1">
+                {ap.appointmentType} {ap.refBiomedical && `- ${ap.preferredServiceType}`}
+              </span>
+              {hasPaymentAmount && (
+                <span className={`badge ${paid ? 'bg-success' : 'bg-warning'} ms-1`}>
+                  <i className={`fas fa-${paid ? 'check' : 'clock'} me-1`}></i>
+                  {paid ? 'Paid' : 'Payment Pending'}
+                </span>
+              )}
+              {getPaymentDetails(ap, false)}
+            </div>
+            {getAmbulanceDetails(ap)}
           </div>
-          <div className="text-muted" style={{ fontSize: 13 }}>
-            #{getIdLastDigits(ap._id, "AP")}
-            {(ap.refAmbulance || ap.refNurse || ap.refPathology) && (
-              <>
-                <br />
-                {ap.refAmbulance && ap.calculatedFare > 0 && (
-                  <>Fare: ₹{ap.calculatedFare?.toFixed(2)} <span style={{ color: ap.isPaid ? "green" : "red" }}>{ap.isPaid ? "Paid" : "Pending"}</span></>
-                )}
-                {ap.refNurse && ap.amount > 0 && (
-                  <>Fare: ₹{ap.amount?.toFixed(2)} <span style={{ color: ap.isPaid ? "green" : "red" }}>{ap.isPaid ? "Paid" : "Pending"}</span></>
-                )}
-                {ap.refPathology && ap.amount > 0 && (
-                  <>Test Fee: ₹{ap.amount?.toFixed(2)} <span style={{ color: ap.isPaid ? "green" : "red" }}>{ap.isPaid ? "Paid" : "Pending"}</span></>
-                )}
-              </>
+        </div>
+        <div className="d-flex flex-column align-items-end gap-2">
+          <div>
+            <i className="fa-solid fa-clock me-1 text-secondary"></i>
+            {ap.date ? getDateFormate(ap.date) : "--"}
+            {ap.time ? `, ${ap.time}` : ""}
+          </div>
+          <div>
+            <span className="badge bg-secondary me-1" style={{ textTransform: "capitalize" }}>
+              {ap.appointmentType || "General Visit"}
+            </span>
+          </div>
+          <div>
+            <button
+              className="btn btn-outline-primary btn-sm me-2"
+              onClick={() => openModal("details", ap)}
+            >
+              Details
+            </button>
+            {ap.refPathology && ap.status === "Completed" && (
+              <button
+                className="btn btn-outline-info btn-sm me-2"
+                onClick={() => openModal("report", ap)}
+                disabled={!getReportDetails(ap)?.hasReport && !getReportDetails(ap)?.testResults}
+              >
+                View Report
+              </button>
+            )}
+            {canCancel && (
+              <button
+                className="btn btn-outline-danger btn-sm"
+                onClick={() => openModal("delete", ap)}
+              >
+                Cancel
+              </button>
             )}
           </div>
-          {getAmbulanceDetails(ap)}
         </div>
       </div>
-      <div className="d-flex flex-column align-items-end gap-2">
-        <div>
-          <i className="fa-solid fa-clock me-1 text-secondary"></i>
-          {ap.date ? getDateFormate(ap.date) : "--"}
-          {ap.time ? `, ${ap.time}` : ""}
-        </div>
-        <div>
-          <span className="badge bg-secondary me-1" style={{ textTransform: "capitalize" }}>
-            {ap.appointmentType || "General Visit"}
-          </span>
-        </div>
-        <div>
-          <button
-            className="btn btn-outline-primary btn-sm me-2"
-            onClick={() => openModal("details", ap)}
-          >
-            Details
-          </button>
-          {ap.refPathology && ap.status === "Completed" && (
-            <button
-              className="btn btn-outline-info btn-sm me-2"
-              onClick={() => openModal("report", ap)}
-              disabled={!getReportDetails(ap)?.hasReport && !getReportDetails(ap)?.testResults}
-            >
-              View Report
-            </button>
-          )}
-          {canCancel && (
-            <button
-              className="btn btn-outline-danger btn-sm"
-              onClick={() => openModal("delete", ap)}
-            >
-              Cancel
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+    );
+  };
   const renderTabAppointments = (appts, emptyMsg, canCancel = false) => {
     const paginatedAppts = paginateData(appts);
     return (
@@ -403,6 +420,28 @@ const MyAppointTabView = ({ appointmentData }) => {
               <div>
                 <strong>Provider:</strong> {getProviderName(ap)}
                 {getAmbulanceDetails(ap) && <> <br />{getAmbulanceDetails(ap)}</>}
+                <br />
+                <strong>Service Type:</strong> {ap.appointmentType}
+                {ap.refBiomedical && (
+                  <>
+                    <br />
+                    <strong>Equipment:</strong> {ap.equipmentType}
+                    <br /> 
+                    <strong>Service:</strong> {ap.preferredServiceType}
+                    {ap.estimatedCost > 0 && (
+                      <>
+                        <br />
+                        <strong>Estimated Cost:</strong> ₹{ap.estimatedCost}
+                      </>
+                    )}
+                    {ap.issueDescription && (
+                      <>
+                        <br />
+                        <strong>Issue:</strong> {ap.issueDescription}
+                      </>
+                    )}
+                  </>
+                )}
               </div>
               {getPaymentDetails(ap)}
               {ap.refPathology && ap.status === "Completed" && (

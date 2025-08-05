@@ -777,12 +777,12 @@ function BookAppointment() {
                                       >
                                         View Details
                                       </Link>
-                                      <Link
+                                      <button
                                         className="btn btn-primary-light"
-                                        to="/biomedical-booking"
+                                        onClick={() => !bookingLoading && handleBookAppointment(el)}
                                       >
                                         Book Service
-                                      </Link>
+                                      </button>
                                     </>
                                   ) : el.type === 'hospital' ? (
                                     <>
@@ -792,12 +792,12 @@ function BookAppointment() {
                                       >
                                         View Details
                                       </Link>
-                                      <Link
+                                      <button
                                         className="btn btn-primary-light"
-                                        to="/hospital-booking"
+                                        onClick={() => !bookingLoading && handleBookAppointment(el)}
                                       >
                                         Book Service
-                                      </Link>
+                                      </button>
                                     </>
                                   ) : (
                                     <>

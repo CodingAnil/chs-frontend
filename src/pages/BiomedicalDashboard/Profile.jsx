@@ -119,12 +119,20 @@ const Profile = ({ biomedicalDetails, getAllData }) => {
     if (biomedicalDetails?.profile) {
       const profile = biomedicalDetails.profile;
       
-      // Set form values with proper field mapping
+      console.log("🔍 Profile data received:", profile);
+      console.log("💼 Company details from API:", {
+        companyName: profile.biomedicalDetails?.companyName,
+        serviceType: profile.biomedicalDetails?.serviceType,
+        experience: profile.biomedicalDetails?.experience,
+        workingHours: profile.availabilityDetails?.workingHours
+      });
+      
+      // Set all basic fields first
       setValue("firstName", profile.firstName || "");
       setValue("lastName", profile.lastName || "");
       setValue("displayName", profile.displayName || "");
       setValue("email", profile.email || "");
-      setValue("phoneNumber", profile.phoneNumber || "");
+      setValue("phoneNumber", profile.phoneNumber?.toString() || "");
       setValue("designation", profile.designation || "Biomedical Engineer");
       setValue("address", profile.address || "");
       setValue("city", profile.city || "");
@@ -132,34 +140,40 @@ const Profile = ({ biomedicalDetails, getAllData }) => {
       setValue("country", profile.country || "India");
       setValue("pinCode", profile.pinCode || "");
       
-      // Biomedical specific fields
-      setValue("companyName", profile.companyName || "");
-      setValue("serviceType", profile.serviceType || "All");
-      setValue("equipmentSpecialty", profile.equipmentSpecialty || []);
-      setValue("certifications", profile.certifications || []);
-      setValue("experience", profile.experience || "");
-      setValue("previousClients", profile.previousClients || []);
+      // Company & Service Details - FROM biomedicalDetails object
+      setValue("companyName", profile.biomedicalDetails?.companyName || "");
+      setValue("serviceType", profile.biomedicalDetails?.serviceType || "All");
+      setValue("experience", profile.biomedicalDetails?.experience || "");
+      setValue("equipmentSpecialty", profile.biomedicalDetails?.equipmentSpecialty || []);
+      setValue("certifications", profile.biomedicalDetails?.certifications || []);
+      setValue("previousClients", profile.biomedicalDetails?.previousClients || []);
       
-      // Qualifications
-      setValue("engineeringDegree", profile.engineeringDegree || "");
-      setValue("biomedicalCertification", profile.biomedicalCertification || "");
-      setValue("manufacturerCertifications", profile.manufacturerCertifications || []);
-      setValue("engineeringLicense", profile.engineeringLicense || "");
+      // Qualifications - FROM qualifications object
+      setValue("engineeringDegree", profile.qualifications?.engineeringDegree || "");
+      setValue("biomedicalCertification", profile.qualifications?.biomedicalCertification || "");
+      setValue("manufacturerCertifications", profile.qualifications?.manufacturerCertifications || []);
+      setValue("engineeringLicense", profile.qualifications?.engineeringLicense || "");
       
-      // Documents
-      setValue("idProof", profile.idProof || "");
-      setValue("educationCertificates", profile.educationCertificates || "");
-      setValue("licenseDocument", profile.licenseDocument || "");
-      setValue("certificationDocuments", profile.certificationDocuments || "");
-      setValue("experienceLetter", profile.experienceLetter || "");
-      setValue("policeVerification", profile.policeVerification || "");
+      // Documents - FROM documents object
+      setValue("idProof", profile.documents?.idProof || "");
+      setValue("educationCertificates", profile.documents?.educationCertificates || "");
+      setValue("licenseDocument", profile.documents?.engineeringLicense || "");
+      setValue("certificationDocuments", profile.documents?.certificationDocuments || "");
+      setValue("experienceLetter", profile.documents?.experienceLetter || "");
+      setValue("policeVerification", profile.documents?.policeVerification || "");
       
-      // Availability
-      setValue("emergencySupport", profile.emergencySupport || false);
-      setValue("twentyFourHour", profile.twentyFourHour || false);
-      setValue("serviceArea", profile.serviceArea || "");
-      setValue("price", profile.price || 0);
-      setValue("workingHours", profile.workingHours || { start: "09:00", end: "18:00" });
+      // Availability - FROM availabilityDetails object
+      setValue("emergencySupport", profile.availabilityDetails?.emergencySupport || false);
+      setValue("twentyFourHour", profile.availabilityDetails?.twentyFourHour || false);
+      setValue("serviceArea", profile.availabilityDetails?.serviceArea || "");
+      setValue("price", profile.availabilityDetails?.price || 0);
+      
+      // Working hours - FROM availabilityDetails object
+      const workingHours = profile.availabilityDetails?.workingHours || { start: "09:00", end: "18:00" };
+      setValue("workingHours", workingHours);
+      
+      console.log("✅ Form values set. Working hours:", workingHours);
+      console.log("✅ Company Name set to:", profile.biomedicalDetails?.companyName);
     }
   }, [biomedicalDetails, setValue]);
 
@@ -232,37 +246,66 @@ const Profile = ({ biomedicalDetails, getAllData }) => {
 
   const onSubmit = async (data) => {
     setLoading(true);
-    console.log("Form submission data:", data);
+    console.log("📝 Form submission data:", data);
     
     try {
-      const response = await callPutApi(`/biomedical/profile`, data);
-      console.log("Update response:", response);
+      // Ensure all fields are properly formatted
+      const formattedData = {
+        ...data,
+        // Convert phone number to integer
+        phoneNumber: data.phoneNumber ? parseInt(data.phoneNumber) : null,
+        
+        // Ensure company details are properly included
+        companyName: data.companyName || "",
+        serviceType: data.serviceType || "All",
+        experience: data.experience || "",
+        
+        // Ensure arrays are properly formatted
+        equipmentSpecialty: Array.isArray(data.equipmentSpecialty) 
+          ? data.equipmentSpecialty 
+          : [],
+        certifications: Array.isArray(data.certifications) 
+          ? data.certifications 
+          : [],
+        manufacturerCertifications: Array.isArray(data.manufacturerCertifications) 
+          ? data.manufacturerCertifications 
+          : [],
+        previousClients: Array.isArray(data.previousClients) 
+          ? data.previousClients 
+          : [],
+        
+        // Ensure working hours is properly structured
+        workingHours: data.workingHours && typeof data.workingHours === 'object' 
+          ? data.workingHours 
+          : { start: "09:00", end: "18:00" },
+        
+        // Convert price to number
+        price: data.price ? parseFloat(data.price) : 0,
+        
+        // Ensure boolean fields are properly set
+        emergencySupport: Boolean(data.emergencySupport),
+        twentyFourHour: Boolean(data.twentyFourHour),
+      };
       
-      if (response?.success || response?.status) {
+      console.log("🚀 Sending formatted data to server:", formattedData);
+      console.log("💼 Company details being sent:", {
+        companyName: formattedData.companyName,
+        serviceType: formattedData.serviceType,
+        experience: formattedData.experience,
+        equipmentSpecialty: formattedData.equipmentSpecialty
+      });
+      
+      const response = await callPutApi(`/biomedical/profile`, formattedData);
+      console.log("📨 Server response:", response);
+      
+      if (response?.success) {
         toastMessage("success", "Profile updated successfully");
-        
-        // Update local storage
-        const userProfile = getLocalStorage(STORAGE.USER_KEY);
-        const updatedStorage = {
-          ...userProfile,
-          name: data.firstName,
-          phoneNumber: data.phoneNumber,
-          email: data.email,
-          profile: {
-            ...userProfile.profile,
-            ...data,
-          },
-        };
-        setLocalStorage(STORAGE.USER_KEY, updatedStorage);
-        
-        if (getAllData) {
-          await getAllData();
-        }
+        if (getAllData) await getAllData();
       } else {
-        throw new Error(response.message || "Failed to update profile");
+        throw new Error(response?.message || "Failed to update profile");
       }
     } catch (error) {
-      console.error("Profile update error:", error);
+      console.error("❌ Profile update error:", error);
       toastMessage("error", error.message || "Failed to update profile");
     } finally {
       setLoading(false);
@@ -765,13 +808,17 @@ const Profile = ({ biomedicalDetails, getAllData }) => {
               <div className="form-wrap">
                 <label className="col-form-label">Working Hours Start</label>
                 <Controller
-                  name="workingHours.start"
+                  name="workingHours"
                   control={control}
                   render={({ field }) => (
                     <input
-                      {...field}
                       type="time"
                       className="form-control"
+                      value={field.value?.start || "09:00"}
+                      onChange={(e) => field.onChange({ 
+                        ...field.value, 
+                        start: e.target.value 
+                      })}
                     />
                   )}
                 />
@@ -781,13 +828,17 @@ const Profile = ({ biomedicalDetails, getAllData }) => {
               <div className="form-wrap">
                 <label className="col-form-label">Working Hours End</label>
                 <Controller
-                  name="workingHours.end"
+                  name="workingHours"
                   control={control}
                   render={({ field }) => (
                     <input
-                      {...field}
                       type="time"
                       className="form-control"
+                      value={field.value?.end || "18:00"}
+                      onChange={(e) => field.onChange({ 
+                        ...field.value, 
+                        end: e.target.value 
+                      })}
                     />
                   )}
                 />
@@ -927,6 +978,8 @@ const Profile = ({ biomedicalDetails, getAllData }) => {
         {/* Submit Button */}
         <div className="setting-card">
           <div className="setting-form-btn">
+            {/* Debug Button - Remove after testing */}
+          
             <Button
               type="submit"
               variant="primary"
@@ -964,4 +1017,4 @@ const Profile = ({ biomedicalDetails, getAllData }) => {
   );
 };
 
-export default Profile; 
+export default Profile;

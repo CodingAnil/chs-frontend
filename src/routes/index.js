@@ -56,6 +56,7 @@ import BiomedicalDashboard from "../pages/BiomedicalDashboard/BiomedicalDashboar
 import HospitalDashboard from "../pages/HospitalDashboard/HospitalDashboard";
 import HospitalProfile from "../pages/HospitalProfile/HospitalProfile";
 import AmbulanceProfile from "../pages/ambulanceprofile/ambulanceprofile";
+import BiomedicalProfile from "../pages/BiomedicalProfile/BiomedicalProfile";
 
 const Routes = () => {
   const userData = getLocalStorage(STORAGE.USER_KEY);
@@ -143,6 +144,7 @@ const Routes = () => {
         <Route path="/nurseprofile" element={<NurseProfile />} />
         <Route path="/pathologyprofile" element={<PathologyProfile />} />
         <Route path="/hospitalprofile" element={<HospitalProfile />} />
+        <Route path="/biomedicalprofile" element={<BiomedicalProfile />} />
         <Route path="/ambulanceprofile" element={<AmbulanceProfile />} />
         <Route path="/nurse/appointment/:userId" element={<NurseBooking />} />
 

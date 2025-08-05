@@ -24,6 +24,19 @@ const getProviderName = (appt) => {
       appt.refPathology.labName ||
       `${appt.refPathology.firstName || ""} ${appt.refPathology.lastName || ""}`.trim()
     );
+  if (appt.refBiomedical)
+    return (
+      appt.refBiomedical.displayName ||
+      `${appt.refBiomedical.firstName || ""} ${appt.refBiomedical.lastName || ""}`.trim() ||
+      "Biomedical Engineer"
+    );
+  if (appt.refHospital)
+    return (
+      appt.refHospital.hospitalName ||
+      appt.refHospital.displayName ||
+      `${appt.refHospital.firstName || ""} ${appt.refHospital.lastName || ""}`.trim() ||
+      "Hospital"
+    );
   return "Unknown Provider";
 };
 
@@ -56,7 +69,7 @@ const AppointmentDetails = ({
     currentAppointment.paymentStatus?.toLowerCase() === "completed" ||
     currentAppointment.paymentStatus?.toLowerCase() === "paid";
 
-  const canPay = (currentAppointment.calculatedFare > 0 || currentAppointment.amount > 0) && !paid;
+  const canPay = (currentAppointment.calculatedFare > 0 || currentAppointment.amount > 0 || (currentAppointment.refBiomedical && currentAppointment.estimatedCost > 0) || (currentAppointment.refHospital && (currentAppointment.amount > 0 || currentAppointment.consultationFee > 0 || currentAppointment.totalAmount > 0))) && !paid;
 
  
 
@@ -122,6 +135,10 @@ const AppointmentDetails = ({
       imgSrc = appt.refPathology.profileImage;
       icon = "fas fa-flask";
       color = "#ffc107";
+    } else if (appt.refHospital) {
+      imgSrc = appt.refHospital.coverImage;
+      icon = "fas fa-hospital";
+      color = "#6f42c1";
     } else {
       imgSrc = user_img;
     }
@@ -165,13 +182,14 @@ const AppointmentDetails = ({
       return;
     }
     let amount = 0;
-    if (currentAppointment.refNurse != null){
-      amount = currentAppointment.amount;
-    }else if (currentAppointment.refPathology != null){
-      amount = currentAppointment.amount;
-    }
-    else{
-      amount = currentAppointment.calculatedFare
+    if (currentAppointment.refAmbulance) {
+      amount = currentAppointment.calculatedFare || 0;
+    } else if (currentAppointment.refBiomedical) {
+      amount = currentAppointment.estimatedCost || 0;
+    } else if (currentAppointment.refHospital) {
+      amount = currentAppointment.amount || currentAppointment.consultationFee || currentAppointment.totalAmount || 0;
+    } else {
+      amount = currentAppointment.amount || 0;
     }
 
     setLoading(true);
@@ -206,7 +224,7 @@ const AppointmentDetails = ({
             const updateResponse = await callPostApi("/payment/verify-appointment-payment", {
               appointmentId: currentAppointment._id,
               userId: u._id,
-              amount: currentAppointment.calculatedFare,
+              amount: amount, // Use the calculated amount instead of hardcoded calculatedFare
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
@@ -327,7 +345,9 @@ const AppointmentDetails = ({
         {/* Payment Section */}
         
 
-        {currentAppointment.calculatedFare > 0 && (
+        {(currentAppointment.calculatedFare > 0 || currentAppointment.amount > 0 || 
+          (currentAppointment.refBiomedical && currentAppointment.estimatedCost > 0) ||
+          (currentAppointment.refHospital && (currentAppointment.amount > 0 || currentAppointment.consultationFee > 0 || currentAppointment.totalAmount > 0))) && (
           <div
             style={{
               marginBottom: 8,
@@ -339,7 +359,11 @@ const AppointmentDetails = ({
           >
             <div className="d-flex justify-content-between align-items-center">
               <div>
-                <b>Fare:</b> ₹{currentAppointment.calculatedFare?.toFixed(2)}
+                <b>Amount:</b> ₹{(currentAppointment.calculatedFare || 
+                                currentAppointment.amount || 
+                                currentAppointment.estimatedCost ||
+                                currentAppointment.consultationFee ||
+                                currentAppointment.totalAmount || 0).toFixed(2)}
               </div>
               <div>
                 <span
@@ -379,78 +403,11 @@ const AppointmentDetails = ({
                   ) : (
                     <>
                       <i className="fas fa-credit-card me-2"></i> Pay Now ₹
-                      {
-                      currentAppointment.calculatedFare?.toFixed(2)
-                      }
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="outline-secondary"
-                  size="sm"
-                  onClick={checkPaymentStatus}
-                  disabled={loading}
-                >
-                  <i className="fas fa-sync-alt"></i>
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-
-{currentAppointment?.amount > 0 && (
-          <div
-            style={{
-              marginBottom: 8,
-              padding: 12,
-              backgroundColor: paid ? "#f8f9fa" : "#fff3cd",
-              borderRadius: 6,
-              border: paid ? "1px solid #dee2e6" : "1px solid #ffeaa7",
-            }}
-          >
-            <div className="d-flex justify-content-between align-items-center">
-              <div>
-                <b>Fare:</b> ₹{currentAppointment.amount?.toFixed(2)}
-              </div>
-              <div>
-                <span
-                  style={{
-                    color: paid ? "green" : "#856404",
-                    fontWeight: 600,
-                    fontSize: 14,
-                  }}
-                >
-                  {paid ? (
-                    <>
-                      <i className="fas fa-check-circle me-1"></i> Paid
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-exclamation-circle me-1"></i> Pending Payment
-                    </>
-                  )}
-                </span>
-              </div>
-            </div>
-
-            {canPay && (
-              <div className="mt-2 d-flex gap-2">
-                <Button
-                  variant="success"
-                  size="sm"
-                  onClick={handlePayNow}
-                  disabled={loading}
-                  className="flex-grow-1"
-                >
-                  {loading ? (
-                    <>
-                      <Spinner animation="border" size="sm" className="me-2" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-credit-card me-2"></i> Pay Now ₹
-                      {(currentAppointment?.refNurse ? currentAppointment.amount?.toFixed(2) : currentAppointment.amount?.toFixed(2))}
+                      {(currentAppointment.calculatedFare || 
+                        currentAppointment.amount || 
+                        currentAppointment.estimatedCost ||
+                        currentAppointment.consultationFee ||
+                        currentAppointment.totalAmount || 0).toFixed(2)}
                     </>
                   )}
                 </Button>

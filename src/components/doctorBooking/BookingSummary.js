@@ -6,43 +6,59 @@ import { Link } from "react-router-dom";
 import { User } from "react-feather";
 
 export default function BookingSummary({ data, type, price, formData }) {
-  console.log("BookingSummary - type:", type);
-  console.log("BookingSummary - data:", data);
+  const getServiceTypeDetails = () => {
+    const types = {
+      doctor: {
+        icon: "fas fa-user-md",
+        color: "#28a745",
+        defaultName: "Healthcare Provider",
+        defaultDesignation: "Doctor",
+        showTitle: true
+      },
+      nurse: {
+        icon: "fas fa-user-nurse", 
+        color: "#17a2b8",
+        defaultName: "Nursing Service",
+        defaultDesignation: "Registered Nurse",
+        showTitle: false
+      },
+      ambulance: {
+        icon: "fas fa-ambulance",
+        color: "#007bff", 
+        defaultName: "Ambulance Service",
+        defaultDesignation: "Emergency Service",
+        showTitle: false
+      },
+      biomedical: {
+        icon: "fas fa-wrench",
+        color: "#fd7e14",
+        defaultName: "Biomedical Service",
+        defaultDesignation: "Biomedical Engineer",
+        showTitle: false
+      },
+      pathology: {
+        icon: "fas fa-flask",
+        color: "#ffc107",
+        defaultName: "Pathology Lab",
+        defaultDesignation: "Lab Service",
+        showTitle: false
+      },
+      hospital: {
+        icon: "fas fa-hospital",
+        color: "#6f42c1",
+        defaultName: "Hospital Service", 
+        defaultDesignation: "Medical Facility",
+        showTitle: false
+      }
+    };
 
-  const getTitlePrefix = () => {
-    if (["pathology", "biomedical", "hospital", "ambulance"].includes(type)) {
-      return "";
-    }
-    if (data?.designation?.toLowerCase().includes("nurse")) {
-      return "";
-    }
-    return "Dr. ";
+    return types[type] || types.doctor;
   };
 
-  const getProfileImageBlock = () => {
-    let imgSrc = null;
-    let icon = "fas fa-user-nurse";
-    let color = "#17a2b8";
+  const serviceDetails = getServiceTypeDetails();
 
-    if (type === "ambulance") {
-      imgSrc = data?.coverImage;
-      icon = "fas fa-ambulance";
-      color = "#007bff";
-    } else if (type === "doctor") {
-      imgSrc = data?.profileImage;
-      icon = "fas fa-user-md";
-      color = "#28a745";
-    } else if (type === "nurse") {
-      imgSrc = data?.profileImage;
-      icon = "fas fa-user-nurse";
-      color = "#17a2b8";
-    } else if (type === "pathology") {
-      imgSrc = data?.profileImage;
-      icon = "fas fa-flask";
-      color = "#ffc107";
-    } else {
-      imgSrc = user_img;
-    }
+  const getProfileImageBlock = () => {
+    const imgSrc = data?.profileImage || data?.coverImage;
 
     if (imgSrc) {
       return (
@@ -67,120 +83,194 @@ export default function BookingSummary({ data, type, price, formData }) {
           alignItems: "center",
           justifyContent: "center",
           fontSize: 24,
-          color,
+          color: serviceDetails.color,
         }}
       >
-        <i className={icon}></i>
+        <i className={serviceDetails.icon}></i>
       </div>
     );
   };
 
-  const getFullName = () => {
-    if (data?.displayName) return data.displayName;
-    if (data?.firstName && data?.lastName) return `${data.firstName} ${data.lastName}`;
-    if (data?.firstName) return data.firstName;
-    if (data?.name) return data.name;
-    if (data?.hospitalName) return data.hospitalName;
-    if (data?.companyName) return data.companyName;
-    return getDefaultName();
+  const getDisplayName = () => {
+    const name = data?.displayName || 
+                `${data?.firstName || ''} ${data?.lastName || ''}`.trim() ||
+                data?.name ||
+                data?.hospitalName ||
+                data?.companyName ||
+                serviceDetails.defaultName;
+    
+    return serviceDetails.showTitle ? `Dr. ${name}` : name;
   };
 
-  const getDefaultName = () => {
-    switch (type) {
-      case "biomedical":
-        return "Biomedical Service";
-      case "hospital":
-        return "Hospital Service";
-      case "ambulance":
-        return "Ambulance Service";
-      case "pathology":
-        return "Pathology Lab";
-      case "nurse":
-        return "Nursing Service";
-      default:
-        return "Healthcare Provider";
+  const getAdditionalInfo = () => {
+    const info = [];
+
+    if (data?.designation) {
+      info.push(data.designation);
+    } else {
+      info.push(serviceDetails.defaultDesignation);
     }
+
+    if (data?.languages?.length) {
+      info.push(data.languages.join(", "));
+    }
+
+    if (type === "nurse") {
+      if (data?.qualifications?.qualification) {
+        info.push(`Qualification: ${data.qualifications.qualification}`);
+      }
+      if (data?.skills?.length) {
+        info.push(`Skills: ${data.skills.join(", ")}`);
+      }
+      if (price) {
+        info.push(`Per Hour Rate: ₹${price}`);
+        if (formData?.hourlyDuration) {
+          info.push(`Total Cost: ₹${price * formData.hourlyDuration}`);
+        }
+      }
+    }
+
+    return info;
   };
 
-  const getDefaultDesignation = () => {
+  const getServiceSpecificInfo = () => {
     switch (type) {
-      case "biomedical":
-        return "Biomedical Engineer";
-      case "hospital":
-        return "Hospital Service";
-      case "ambulance":
-        return "Emergency Service";
-      case "pathology":
-        return "Pathology Lab";
-      case "nurse":
-        return "Registered Nurse";
+      case 'ambulance':
+        return {
+          details: [
+            { label: 'Vehicle Type', value: data?.vehicleType || 'Standard Ambulance' },
+            { label: 'Equipment', value: data?.equipment?.join(', ') || 'Basic Life Support' },
+            { label: 'Response Time', value: data?.responseTime || 'Emergency Response' },
+            { label: 'Service Area', value: data?.serviceArea || 'Local Region' }
+          ]
+        };
+      case 'biomedical':
+        return {
+          details: [
+            { label: 'Specialization', value: data?.specialization || 'General Equipment' },
+            { label: 'Service Type', value: data?.serviceType || 'Maintenance & Repair' },
+            { label: 'Experience', value: data?.experience ? `${data.experience} years` : 'Experienced' },
+            { label: 'Certifications', value: data?.certifications?.join(', ') || 'Certified Engineer' }
+          ]
+        };
+      case 'nurse':
+        return {
+          details: [
+            { label: 'Experience', value: data?.experience ? `${data.experience} years` : 'Experienced' },
+            { label: 'Shift Preference', value: data?.shiftPreference || 'Flexible' },
+            { label: 'Specialization', value: data?.specialization || 'General Care' }
+          ]
+        };
       default:
-        return "Doctor";
+        return { details: [] };
     }
   };
 
   return (
-    <>
-      <Col lg="4" md="12">
-        <div className="booking-header">
-          <h4 className="booking-title">Booking Summary</h4>
-        </div>
+    <Col lg="12" md="12">
+      <div className="booking-header">
+        <h4 className="booking-title">Booking Summary</h4>
+      </div>
 
-        <Card className="booking-card">
-          <CardBody className="booking-card-body">
-            <div className="booking-doctor-details">
-              <div className="booking-doctor-left">
-                <div className="booking-doctor-img">
-                  <Link to="#">{getProfileImageBlock()}</Link>
-                </div>
-                <div className="booking-doctor-info">
-                  <h4>
-                    <Link to="#">
-                      {getTitlePrefix()}
-                      {getFullName()}
-                    </Link>
-                  </h4>
-                  <p>{data?.designation || getDefaultDesignation()}</p>
-                  {data?.languages && <p>{data.languages.join(", ")}</p>}
-                  {type === "nurse" && data?.qualifications?.qualification && (
-                    <p><strong>Qualification:</strong> {data.qualifications.qualification}</p>
-                  )}
-                  {type === "nurse" && data?.skills?.length > 0 && (
-                    <p><strong>Skills:</strong> {data.skills.join(", ")}</p>
-                  )}
-                  {type === "nurse" && (
-                    <>
-                      <p><strong>Per Hour Rate:</strong> ₹{price || 0}</p>
-                      {formData?.hourlyDuration && (
-                        <p><strong>Total Cost:</strong> ₹{(price || 0) * (formData.hourlyDuration || 1)}</p>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card className="booking-card mt-3">
-          <CardBody className="booking-card-body">
-            <div className="booking-device">
-              <div className="booking-device-img">
-                <img src={message} alt="device-message" />
+      <Card className="booking-card">
+        <CardBody className="booking-card-body">
+          <div className="booking-doctor-details">
+            <div className="booking-doctor-left">
+              <div className="booking-doctor-img">
+                <Link to="#">{getProfileImageBlock()}</Link>
               </div>
               <div className="booking-doctor-info">
-                <h3>We can help you</h3>
-                <p className="device-text">
-                  Contact us at <b>info@chshealthcare.in</b> or chat with our support team.
-                </p>
-                <Link to="/contact" className="btn">
-                  Contact us
-                </Link>
+                <h4>
+                  <Link to="#">{getDisplayName()}</Link>
+                </h4>
+                {getAdditionalInfo().map((info, index) => (
+                  <p key={index}>{info}</p>
+                ))}
               </div>
             </div>
-          </CardBody>
-        </Card>
-      </Col>
-    </>
+          </div>
+
+          {/* Add Service Specific Details */}
+          {getServiceSpecificInfo().details.length > 0 && (
+            <div className="service-specific-details mt-3">
+              <hr />
+              <h5 className="mb-3">Service Details</h5>
+              {getServiceSpecificInfo().details.map((detail, index) => (
+                <div key={index} className="d-flex justify-content-between mb-2">
+                  <span className="text-muted">{detail.label}:</span>
+                  <span className="fw-medium">{detail.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add Booking Time Slot if available */}
+          {formData?.date && formData?.time && (
+            <div className="booking-time-details mt-3">
+              <hr />
+              <h5 className="mb-3">Appointment Details</h5>
+              <div className="d-flex justify-content-between mb-2">
+                <span className="text-muted">Date:</span>
+                <span className="fw-medium">
+                  {new Date(formData.date).toLocaleDateString('en-IN', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </span>
+              </div>
+              <div className="d-flex justify-content-between mb-2">
+                <span className="text-muted">Time:</span>
+                <span className="fw-medium">{formData.time}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Add Price Summary if applicable */}
+          {price && (
+            <div className="price-summary mt-3">
+              <hr />
+              <h5 className="mb-3">Price Details</h5>
+              <div className="d-flex justify-content-between mb-2">
+                <span className="text-muted">Base Rate:</span>
+                <span className="fw-medium">₹{price}</span>
+              </div>
+              {formData?.hourlyDuration && (
+                <>
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted">Duration:</span>
+                    <span className="fw-medium">{formData.hourlyDuration} hours</span>
+                  </div>
+                  <div className="d-flex justify-content-between mb-2 total-amount">
+                    <span className="fw-bold">Total Amount:</span>
+                    <span className="fw-bold text-primary">₹{price * formData.hourlyDuration}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
+      <Card className="booking-card mt-3">
+        <CardBody className="booking-card-body">
+          <div className="booking-device">
+            <div className="booking-device-img">
+              <img src={message} alt="device-message" />
+            </div>
+            <div className="booking-doctor-info">
+              <h3>We can help you</h3>
+              <p className="device-text">
+                Contact us at <b>info@chshealthcare.in</b> or chat with our support team.
+              </p>
+              <Link to="/contact" className="btn">
+                Contact us
+              </Link>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+    </Col>
   );
 }

@@ -57,6 +57,7 @@ export default function BiomedicalBooking({ type }) {
 
   useEffect(() => {
     // Pre-populate form if data is loaded
+    debugger;
     if (data) {
       setFormData((prev) => ({
         ...prev,
@@ -247,15 +248,11 @@ export default function BiomedicalBooking({ type }) {
     
     if (type === "biomedical") {
       // Try multiple possible data structures for biomedical
-      return data?.refBiomedical || data?.biomedical || data?.provider || {
-        displayName: "Biomedical Service",
-        firstName: "Biomedical",
-        lastName: "Service",
-        designation: "Biomedical Engineer",
-        name: "Biomedical Service"
-      };
+      return data.refBiomedical;
+      debugger;
+      
     }
-    return data?.refDoctor || data?.doctor;
+    return data?.refDoctor ;
   })();
 
   if (!data) {
