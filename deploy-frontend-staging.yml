@@ -1,0 +1,48 @@
+name: Deploy Frontend to Staging
+
+on:
+  push:
+    branches:
+      - staging
+      - 'staging-*'
+
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH to remote server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            echo "📁 Switching to frontend deployment directory"
+            cd ~/deploy/CHS-Frontend || exit 1
+
+            echo "📦 Pulling latest frontend code"
+            git fetch origin
+            git reset --hard origin/staging-frontend
+
+            echo "🐳 Building Docker image for frontend"
+            docker build -t chs-frontend-staging \
+              --build-arg REACT_APP_SOCKET_BASE_URL=http://31.97.203.80:5002/ \
+              --build-arg REACT_APP_API_BASE_URL=http://31.97.203.80:5002/ \
+              --build-arg DANGEROUSLY_DISABLE_HOST_CHECK=true \
+              --build-arg APP_PORT=3002 \
+              .
+
+            echo "🛑 Removing old frontend container (if exists)"
+            docker rm -f chs-frontend-staging || true
+
+            echo "🚀 Starting new frontend container on port 3002"
+            docker run -d \
+              --name chs-frontend-staging \
+              -p 3002:3002 \
+              chs-frontend-staging
