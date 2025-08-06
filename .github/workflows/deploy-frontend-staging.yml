@@ -33,7 +33,7 @@ jobs:
             echo "🐳 Building Docker image for frontend"
             docker build -t chs-frontend-staging \
               --build-arg REACT_APP_SOCKET_BASE_URL=http://31.97.203.80:5002/ \
-              --build-arg REACT_APP_API_BASE_URL=http://31.97.203.80:5002/ \
+              --build-arg REACT_APP_API_BASE_URL=wss://31.97.203.80:5002/ \
               --build-arg DANGEROUSLY_DISABLE_HOST_CHECK=true \
               --build-arg APP_PORT=3002 \
               .
