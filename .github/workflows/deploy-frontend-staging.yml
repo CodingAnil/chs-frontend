@@ -24,7 +24,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             echo "📁 Switching to frontend deployment directory"
-            cd ~/deploy/CHS-Frontend || exit 1
+            cd ~/deploy/CHSFrontendNew || exit 1
 
             echo "📦 Pulling latest frontend code"
             git fetch origin
