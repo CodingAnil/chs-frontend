@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import '../investor/Investor.css';
@@ -9,8 +9,13 @@ import chart from '../../assets/img/chart.png';
 import { Container, Row, Col } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 
+const InvestorRegistration = () => {
+    const [openFAQ, setOpenFAQ] = useState('faqOne'); // Set first FAQ open by default
 
-const Contact = () => {
+    const toggleFAQ = (faqId) => {
+        setOpenFAQ(openFAQ === faqId ? '' : faqId);
+    };
+
     return (
         <>
             <Header />
@@ -166,38 +171,131 @@ const Contact = () => {
                         <Col lg='12'>
                             <div className="section-header-fifteen text-center">
                                 <h2>Frequently <span>Asked Questions</span></h2>
-                                <p>What our clients say about us</p>
+                                <p>Common questions from our investors and stakeholders</p>
                             </div>
                         </Col>
                     </Row>
                     <div className="faq-main-cards" id="accordionExample">
                         <div className="faq-card aos aos-init aos-animate" data-aos="fade-up">
                             <div className="faq-title">
-                                <a data-bs-toggle="collapse" href="#faqOne" aria-expanded="false">
-                                    <span> How can I buy shares of CHS Caresmart Health Solution</span>
+                                <a 
+                                    onClick={() => toggleFAQ('faqOne')} 
+                                    style={{ cursor: 'pointer' }}
+                                    aria-expanded={openFAQ === 'faqOne'}
+                                >
+                                    <span>How can I buy shares of CHS Caresmart Health Solution?</span>
                                 </a>
-                                <div id="faqOne" className="card-collapse collapse show" data-bs-parent="#accordionExample">
-                                    <p>Shares can be purchased through a licensed broker or through online trading platforms. Check with your financial advisor for more information.</p>
+                                <div 
+                                    id="faqOne" 
+                                    className={`card-collapse collapse ${openFAQ === 'faqOne' ? 'show' : ''}`}
+                                >
+                                    <p>You can purchase CHS shares through several methods:</p>
+                                    <ul>
+                                        <li><strong>Online Trading Platforms:</strong> Use popular platforms like E*TRADE, TD Ameritrade, or Robinhood</li>
+                                        <li><strong>Licensed Brokers:</strong> Contact a certified financial advisor or brokerage firm</li>
+                                        <li><strong>Direct Stock Purchase Plans:</strong> Some companies offer direct purchase options</li>
+                                        <li><strong>Investment Apps:</strong> Mobile applications that allow stock trading</li>
+                                    </ul>
+                                    <p>Our stock ticker symbol is [CHS] and we're listed on [Exchange Name]. Always consult with a financial advisor before making investment decisions.</p>
                                 </div>
                             </div>
                         </div>
                         <div className="faq-card aos aos-init aos-animate" data-aos="fade-up">
                             <div className="faq-title">
-                                <a className="collapsed" data-bs-toggle="collapse" href="#faqtwo" aria-expanded="false">
+                                <a 
+                                    onClick={() => toggleFAQ('faqTwo')} 
+                                    style={{ cursor: 'pointer' }}
+                                    aria-expanded={openFAQ === 'faqTwo'}
+                                >
                                     <span>How can I receive updates about CHS Caresmart Health Solution?</span>
                                 </a>
-                                <div id="faqtwo" className="card-collapse collapse" data-bs-parent="#accordionExample">
-                                    <p>Sign up for our investor newsletter to receive the latest news, reports, and updates directly to your email.</p>
+                                <div 
+                                    id="faqTwo" 
+                                    className={`card-collapse collapse ${openFAQ === 'faqTwo' ? 'show' : ''}`}
+                                >
+                                    <p>Stay informed about CHS through multiple channels:</p>
+                                    <ul>
+                                        <li><strong>Investor Newsletter:</strong> Subscribe to receive quarterly reports, earnings announcements, and strategic updates</li>
+                                        <li><strong>Email Alerts:</strong> Get immediate notifications for press releases and SEC filings</li>
+                                        <li><strong>Investor Relations Portal:</strong> Access our dedicated investor section on the website</li>
+                                        <li><strong>Social Media:</strong> Follow our official LinkedIn and Twitter accounts for real-time updates</li>
+                                        <li><strong>Annual Meetings:</strong> Participate in shareholder meetings and conference calls</li>
+                                    </ul>
+                                    <p>Sign up for our investor communications at the bottom of this page or contact our investor relations team directly.</p>
                                 </div>
                             </div>
                         </div>
                         <div className="faq-card aos aos-init aos-animate" data-aos="fade-up">
                             <div className="faq-title">
-                                <a className="collapsed" data-bs-toggle="collapse" href="#faqthree" aria-expanded="false">
+                                <a 
+                                    onClick={() => toggleFAQ('faqThree')} 
+                                    style={{ cursor: 'pointer' }}
+                                    aria-expanded={openFAQ === 'faqThree'}
+                                >
                                     <span>Where can I find historical financial data?</span>
                                 </a>
-                                <div id="faqthree" className="card-collapse collapse" data-bs-parent="#accordionExample">
-                                    <p>Historical financial data can be found in our [Investor Relations section / Financial Reports section] on our website.</p>
+                                <div 
+                                    id="faqThree" 
+                                    className={`card-collapse collapse ${openFAQ === 'faqThree' ? 'show' : ''}`}
+                                >
+                                    <p>Comprehensive historical financial data is available through:</p>
+                                    <ul>
+                                        <li><strong>Annual Reports:</strong> 10+ years of detailed financial statements and business analysis</li>
+                                        <li><strong>Quarterly Earnings:</strong> SEC 10-Q filings with quarterly performance data</li>
+                                        <li><strong>SEC Database:</strong> All official filings are available through EDGAR database</li>
+                                        <li><strong>Financial Websites:</strong> Third-party sites like Yahoo Finance, Bloomberg, and MarketWatch</li>
+                                        <li><strong>Investor Relations Archive:</strong> Past presentations, transcripts, and supplementary materials</li>
+                                    </ul>
+                                    <p>Our financial reports section includes data dating back to our IPO, with downloadable PDF formats and interactive charts showing key performance metrics over time.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="faq-card aos aos-init aos-animate" data-aos="fade-up">
+                            <div className="faq-title">
+                                <a 
+                                    onClick={() => toggleFAQ('faqFour')} 
+                                    style={{ cursor: 'pointer' }}
+                                    aria-expanded={openFAQ === 'faqFour'}
+                                >
+                                    <span>What is CHS's dividend policy?</span>
+                                </a>
+                                <div 
+                                    id="faqFour" 
+                                    className={`card-collapse collapse ${openFAQ === 'faqFour' ? 'show' : ''}`}
+                                >
+                                    <p>CHS maintains a balanced approach to dividend distribution:</p>
+                                    <ul>
+                                        <li><strong>Quarterly Dividends:</strong> We aim to provide consistent quarterly payments to shareholders</li>
+                                        <li><strong>Reinvestment Focus:</strong> A portion of earnings is reinvested for growth and expansion</li>
+                                        <li><strong>Dividend History:</strong> Track record of dividend payments and yield over the past 5 years</li>
+                                        <li><strong>Future Outlook:</strong> Dividend sustainability based on cash flow and business performance</li>
+                                    </ul>
+                                    <p>Dividend announcements are made quarterly following our earnings reports. Check our investor calendar for upcoming payment dates.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="faq-card aos aos-init aos-animate" data-aos="fade-up">
+                            <div className="faq-title">
+                                <a 
+                                    onClick={() => toggleFAQ('faqFive')} 
+                                    style={{ cursor: 'pointer' }}
+                                    aria-expanded={openFAQ === 'faqFive'}
+                                >
+                                    <span>How can I contact the Investor Relations team?</span>
+                                </a>
+                                <div 
+                                    id="faqFive" 
+                                    className={`card-collapse collapse ${openFAQ === 'faqFive' ? 'show' : ''}`}
+                                >
+                                    <p>Our Investor Relations team is available to assist you:</p>
+                                    <ul>
+                                        <li><strong>Email:</strong> investors@chscaresmart.com</li>
+                                        <li><strong>Phone:</strong> +1 (555) 123-4567 (Monday-Friday, 9 AM - 5 PM EST)</li>
+                                        <li><strong>Mailing Address:</strong> CHS Investor Relations, 123 Healthcare Blvd, Suite 100, Medical City, MC 12345</li>
+                                        <li><strong>Online Form:</strong> Submit inquiries through our investor contact form</li>
+                                        <li><strong>Office Hours:</strong> Schedule in-person meetings during regular business hours</li>
+                                    </ul>
+                                    <p>We typically respond to inquiries within 2 business days. For urgent matters, please call our investor hotline.</p>
                                 </div>
                             </div>
                         </div>
@@ -209,4 +307,4 @@ const Contact = () => {
     );
 };
 
-export default Contact;
+export default InvestorRegistration;

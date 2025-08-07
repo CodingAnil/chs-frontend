@@ -655,7 +655,7 @@ export const ServiceDescriptionData = [
     service_desc_img: service_desc_img1,
     service_heading: "Virtual Consultations",
     service_desc:
-      "Virtual consultations allow doctors to see more patients in less time since they eliminate the need for travel and waiting room time.",
+      "Your Doctor Is In. Lucknow. Skip traffic, waiting rooms & germs. Secure video visits with top specialists – from your couch. Prescriptions & care plans included.",
     path: "/VirtualConsultation",
   },
   {
@@ -663,39 +663,40 @@ export const ServiceDescriptionData = [
     service_desc_img: service_desc_img2,
     service_heading: "Appointment Scheduling",
     service_desc:
-      "Virtual consultations allow doctors to see more patients in less time since they eliminate the need for travel and waiting room time.",
+      "Booked in 60 Seconds. Seriously. No calls. No hold music. See real-time slots, pick your perfect time & get reminders. Health shouldn't be a hassle.",
     path: "/doctorlist",
   },
   {
     id: 3,
-    service_desc_img: service_desc_img3,
-    service_heading: "Prescription Refills",
+    service_desc_img: service_desc_img5,
+    service_heading: "24×7 Pharmacy Services",
     service_desc:
-      "Virtual consultations allow doctors to see more patients in less time since they eliminate the need for travel and waiting room time.",
-    path: "/PrescriptionRefills",
+      "Medication Emergencies Don't Wait. Neither Do We. Refill at midnight? Sudden fever? We're open 24/7 with meds delivered or ready for pickup. Sleep easy.",
+    path: "/Pharmacy",
   },
   {
     id: 4,
     service_desc_img: service_desc_img4,
-    service_heading: "Lab Test Results",
+    service_heading: "Lab Test & Results",
     service_desc:
-      "Virtual consultations allow doctors to see more patients in less time since they eliminate the need for travel and waiting room time.",
+      "Test Today. Know Tomorrow. No more nail-biting waits. Get painless blood draws & digital results before lunch. Your health insights, accelerated.",
     path: "/LabTest",
   },
   {
     id: 5,
-    service_desc_img: service_desc_img5,
-    service_heading: "Pharmacy Services",
+    service_desc_img: service_desc_img6,
+    service_heading: "Diagnostic Services",
     service_desc:
-      "Virtual consultations allow doctors to see more patients in less time since they eliminate the need for travel and waiting room time.",
-    path: "/Pharmacy",
+      "See What's Beneath the Surface. Advanced MRI/X-Ray/CT scans with same-day analysis. Clarity without delay – so you can move forward faster.",
+    path: "/Diagnostics",
   },
   {
     id: 6,
-    service_desc_img: service_desc_img6,
-    service_heading: "Diagnostics Services",
+    service_desc_img: service_desc_img3,
+    service_heading: "Other Services",
     service_desc:
-      "Virtual consultations allow doctors to see more patients in less time since they eliminate the need for travel and waiting room time.",
-    path: "/Diagnostics",
+      "Stop Treating Symptoms. Start Building Resilience. Personalized nutrition, mental health & prevention plans. Thrive – don't just survive.",
+    path: "/services",
   },
 ];
+
